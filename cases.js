@@ -67,12 +67,14 @@ const CMARY = {
       { t: 'At the sawmill until 6 PM. Twelve witnesses.', req: 'rick_alibi' },
       { t: 'AFIS possible on the gate print (2019 DUI). He lives with her; his prints could be anywhere she goes.', req: 'print' },
       { t: 'Drives a blue sedan. No van.', req: 'van' },
+      { t: 'Margaret saw a grey van on their street twice. Rick never mentioned it to her.', req: 'mom_van' },
     ] },
     { id: 'pruett', name: 'Dale Pruett', role: 'Owner, Pruett Hardware · 64', notes: [
       { t: 'Owns the store the jacket came from.' },
       { t: 'Clerk is certain the buyer was not Dale: too young.', req: 'jacket' },
       { t: 'Drives a red pickup. Bad hip.', req: 'van' },
       { t: 'The knife is his stock.', req: 'knife' },
+      { t: 'Has keys to every stockroom in the store, including the knife case.', req: 'gary' },
     ] },
   ],
   objective(api) {
@@ -401,16 +403,22 @@ const WING = {
       { t: 'Threatened Carol Dunn over a debt. Handy with blades.' },
       { t: 'Strong, quick on his feet. No cane, no limp.', req: 'limp' },
       { t: 'At the lodge the night Ruth died. The priest confirms it.', req: 'beckett_alibi' },
+      { t: 'Butchers every day. The tally marks were cut clean, by a steady hand.', req: 'tally1' },
+      { t: 'Drinks at the Fox & Lantern most Thursdays, the same nights as the victims.', req: 'chemical' },
     ] },
     { id: 'finch', name: 'Abel Finch', role: 'Watchmaker · 58', notes: [
       { t: 'The calling card is a watch.' },
       { t: 'Says he sold a dozen to a gloved man with a cane. Finch has no cane.', req: 'watch_buyer' },
       { t: 'His prints are on file from a 2003 break-in report. No scar. No match.', req: 'print2' },
+      { t: 'Lives alone above his shop. Nobody can vouch for any of his nights.', req: 'watch_buyer' },
+      { t: 'Was repairing the church clock the week Ruth Abara died.', req: 'tally3' },
     ] },
     { id: 'morrow', name: 'Father Morrow', role: 'Priest · 70', notes: [
       { t: 'All three victims were his parishioners.' },
       { t: 'Told you about Crane before you asked. He wants someone to stop it.', req: 'scar' },
       { t: 'No scar on his hands.', req: 'print2' },
+      { t: 'Heard all three victims\' confessions. Knew exactly who they were and what they had done.', req: 'hospital' },
+      { t: 'Keeps keys to half the buildings on Main for the parish.', req: 'vial' },
     ] },
   ],
   objective(api) {

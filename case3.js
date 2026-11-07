@@ -70,11 +70,15 @@ export const HARROW = {
       { t: 'Asked Nell out twice; she refused.', req: 'silas_nell' },
       { t: 'Sharpened his skinning knives last week.', req: 'dag_silas' },
       { t: 'Every carcass in his shed is tagged and logged with the state.', req: 'tags' },
+      { t: 'His lodge sits on the lake road, a short walk from where the plow was found.', req: 'plow' },
+      { t: 'Has a cold room and a full set of butchering tools.', req: 'silas_tags' },
     ] },
     { id: 'dag', name: 'Dag Holm', role: 'Mechanic · 44', notes: [
       { t: "Towed Gus's plow. Knows every engine in town." },
       { t: 'Knew exactly how the plow was stopped.', req: 'fuse' },
       { t: 'Snowed in at the garage with three skiers the night Gus vanished.', req: 'dag_alibi' },
+      { t: "Serviced Gus's plow the week before the storm. Knew that fuse box better than anyone.", req: 'plow' },
+      { t: 'Owns the only tow truck in town; it can go anywhere the plow can.', req: 'van3' },
     ] },
   ],
   objective(api) {

@@ -200,6 +200,9 @@ function startCase(def) {
   };
   B.init({ scene, colliders: G.colliders, lamps: G.lamps, lights: G.lights, anims: G.anims, cull: G.cull, camera, cheap: settings.quality === 'low' });
   G.rain = def.snow ? makeSnow(Math.round(Q().rain * 0.8)) : makeRain(Q().rain); scene.add(G.rain);
+  // suspects appear in a random order each playthrough (the killer must not always be first)
+  G.suspects = def.suspects.slice();
+  for (let i = G.suspects.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [G.suspects[i], G.suspects[j]] = [G.suspects[j], G.suspects[i]]; }
   def.build(api);
   B.staticBatch(scene);
   registerCulling();
@@ -444,7 +447,7 @@ function openNotebook() {
   }
   if (!ev.children.length) ev.innerHTML = '<div class="muted">Nothing yet.</div>';
   if (!st.children.length) st.innerHTML = '<div class="muted">Nobody has talked to you yet.</div>';
-  for (const s of G.def.suspects) {
+  for (const s of G.suspects) {
     const notes = s.notes.filter((n) => !n.req || G.clues.has(n.req));
     const d = document.createElement('div'); d.className = 'entry';
     d.innerHTML = `<b>${s.name}</b><em>${s.role}</em>` + notes.map((n) => `<span>· ${n.t}</span>`).join('');
@@ -465,7 +468,7 @@ function openBoard() {
     ? 'You have enough to make a charge. Choose carefully. There is no second chance.'
     : `Key evidence: <b>${have} / ${def.required.length}</b>. Not enough to charge anyone yet.<br><span class="muted">${def.objective(api)}</span>`;
   const list = $('bSuspects'); list.innerHTML = '';
-  for (const s of def.suspects) {
+  for (const s of G.suspects) {
     const notes = s.notes.filter((n) => !n.req || G.clues.has(n.req));
     const card = document.createElement('div'); card.className = 'suspect';
     card.innerHTML = `<div class="mug">${s.name.split(' ').filter((w) => !w.endsWith('.')).map((w) => w[0]).join('')}</div><div class="sinfo"><b>${s.name}</b><em>${s.role}</em>${notes.map((n) => `<span>· ${n.t}</span>`).join('')}</div>`;
