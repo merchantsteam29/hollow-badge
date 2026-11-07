@@ -225,7 +225,6 @@ export function forest(list) {
     mesh.computeBoundingSphere();
     mesh.castShadow = true; mesh.receiveShadow = true; mesh.userData.dynamic = true;
     C.scene.add(mesh);
-    if (C.cull) C.cull.push({ obj: mesh, c: mesh.boundingSphere.center.clone(), r: mesh.boundingSphere.radius });
   }
 }
 export function resetShared() { if (treeGeo) treeGeo.dispose(); if (treeMat) treeMat.dispose(); treeGeo = treeMat = null; }
@@ -353,13 +352,20 @@ export function marker(n, x, z) {
   return m;
 }
 
-// Merge every static top-level mesh that shares a material into one mesh.
-// Cuts hundreds of draw calls (each window, fence post, tape strip...) down to a few dozen.
+// Merge static top-level meshes that share a material, per 24 m map cell.
+// Cells (not one town-wide mesh) let the renderer skip everything outside the view cone,
+// and let main.js stop drawing cells that are deep in the fog.
+const CELL = 24;
 export function staticBatch(scene) {
-  const groups = new Map();
+  const groups = new Map(), sphere = new THREE.Sphere();
   for (const o of scene.children) {
     if (!o.isMesh || o.isInstancedMesh || o.userData.dynamic || o.material.map) continue;
-    const k = o.material.uuid + (o.castShadow ? '|s' : '|n');
+    o.updateMatrixWorld(true);
+    if (!o.geometry.boundingSphere) o.geometry.computeBoundingSphere();
+    sphere.copy(o.geometry.boundingSphere).applyMatrix4(o.matrixWorld);
+    // huge pieces (ground, long roads) get their own bucket so they don't inflate a cell
+    const cell = sphere.radius > CELL * 0.75 ? 'big' : Math.floor(sphere.center.x / CELL) + ',' + Math.floor(sphere.center.z / CELL);
+    const k = o.material.uuid + (o.castShadow ? '|s|' : '|n|') + cell;
     if (!groups.has(k)) groups.set(k, []);
     groups.get(k).push(o);
   }
@@ -367,7 +373,6 @@ export function staticBatch(scene) {
   for (const list of groups.values()) {
     if (list.length < 2) continue;
     const geos = list.map((o) => {
-      o.updateMatrixWorld(true);
       const g = o.geometry.index ? o.geometry.toNonIndexed() : o.geometry.clone();
       for (const name of Object.keys(g.attributes)) if (!['position', 'normal', 'uv'].includes(name)) g.deleteAttribute(name);
       g.applyMatrix4(o.matrixWorld);
@@ -376,6 +381,7 @@ export function staticBatch(scene) {
     const merged = mergeGeometries(geos, false);
     geos.forEach((g) => g.dispose());
     if (!merged) continue;
+    merged.computeBoundingSphere();
     const m = new THREE.Mesh(merged, list[0].material);
     m.castShadow = list[0].castShadow; m.receiveShadow = true; m.renderOrder = list[0].renderOrder;
     for (const o of list) { scene.remove(o); o.geometry.dispose(); }

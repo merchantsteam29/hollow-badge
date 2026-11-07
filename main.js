@@ -105,7 +105,41 @@ let fpsAcc = 0, fpsN = 0;
 function updateFps(dt) {
   if (!settings.showFps) return;
   fpsAcc += dt; fpsN++;
-  if (fpsAcc >= 0.5) { $('fps').textContent = Math.round(fpsN / fpsAcc) + ' FPS · ' + settings.quality.toUpperCase() + ' · ' + GPU; fpsAcc = 0; fpsN = 0; }
+  if (fpsAcc >= 0.5) {
+    const r = renderer.info.render;
+    $('fps').textContent = Math.round(fpsN / fpsAcc) + ' FPS · ' + settings.quality.toUpperCase() + ' · drawing ' + (G ? G.cullDrawn + '/' + G.cull.length : 0) + ' objects, ' + r.calls + ' calls · ' + GPU;
+    fpsAcc = 0; fpsN = 0;
+  }
+}
+
+// ---------- culling ----------
+// The renderer already skips meshes outside the view cone (frustum culling). On top of that,
+// anything whose nearest edge is past CULL_DIST is moved to layer 1, which the camera and the
+// flashlight shadow don't render. The fog is fully opaque by then, so nothing visibly pops.
+// Layers are used instead of .visible so story scripts can still show/hide things freely.
+const CULL_DIST = 40;
+const _box = new THREE.Box3(), _sph = new THREE.Sphere();
+function registerCulling() {
+  G.cull.length = 0;
+  for (const o of scene.children) {
+    if (o.isLight || o === camera || o === G.rain || o.isSprite) continue;
+    _box.setFromObject(o);
+    if (_box.isEmpty()) continue;
+    _box.getBoundingSphere(_sph);
+    if (_sph.radius > 30) continue; // ground, long roads, river: always drawn
+    G.cull.push({ obj: o, c: _sph.center.clone(), r: _sph.radius, out: false });
+  }
+}
+function setLayer(o, layer) { o.traverse((c) => c.layers.set(layer)); }
+function updateCulling() {
+  const p = camera.position;
+  let drawn = 0;
+  for (const c of G.cull) {
+    const out = c.c.distanceTo(p) - c.r > CULL_DIST;
+    if (out !== c.out) { c.out = out; setLayer(c.obj, out ? 1 : 0); }
+    if (!out) drawn++;
+  }
+  G.cullDrawn = drawn;
 }
 
 // ---------- state ----------
@@ -153,6 +187,7 @@ function startCase(def) {
   G.rain = makeRain(Q().rain); scene.add(G.rain);
   def.build(api);
   B.staticBatch(scene);
+  registerCulling();
   buildPool();
   flash.intensity = 160;
   $('caseLabel').textContent = `${def.num} · ${def.place.toUpperCase()}`;
@@ -734,7 +769,7 @@ function frame(now) {
   }
   for (const a of G.anims) a(dt);
   updatePool();
-  for (const c of G.cull) c.obj.visible = c.c.distanceTo(camera.position) - c.r < 38;
+  updateCulling();
   updateFps(dt);
   updateRain(dt);
   if (state === 'play' && !G.cut && !G.ui) autoQuality(dt);
