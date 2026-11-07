@@ -67,7 +67,7 @@ const CMARY = {
     if (!h('backpack') || !h('print')) return 'Search the playground where Lily was last seen. Dust the gate.';
     if (!h('van')) return 'Someone was watching the playground this afternoon. Try the bus stop.';
     if (!h('jacket')) return 'Ask at the corner shop. It was open all day.';
-    if (!h('body')) return h('ribbon') ? 'Follow the trampled path west, toward the glow between the trees.' : h('tracks') ? 'The tracks stop near a trampled path on the left (west) side of the road. Follow it.' : 'Follow the old logging road into the woods.';
+    if (!h('body')) return h('ribbon') ? 'She came this way. Search deeper in the trees.' : h('tracks') ? 'The tracks end out here. Search the trees along the road.' : 'Follow the old logging road into the woods.';
     return 'Return to your car. Use the case board to name who did this.';
   },
   endings: {
@@ -168,8 +168,8 @@ const CMARY = {
     // woods (avoid track + shed clearing + ribbon tree)
     const trees = [];
     // keep a clear corridor along the footpath to the shed
-    const PATH = [[-1.8, -49.2], [-6, -51.4], [-7.4, -56.4], [-8.2, -60.2], [-8.1, -61.8]];
-    const nearPath = (x, z) => PATH.some((p, i) => { if (!i) return false; const [ax, az] = PATH[i - 1], [bx, bz] = p; const dx = bx - ax, dz = bz - az; const t = Math.max(0, Math.min(1, ((x - ax) * dx + (z - az) * dz) / (dx * dx + dz * dz))); return Math.hypot(x - ax - dx * t, z - az - dz * t) < 2.5; });
+    const PATH = [[-6, -51.4], [-7.4, -56.4], [-8.2, -60.2], [-8.1, -61.8]];
+    const nearPath = (x, z) => PATH.some((p, i) => { if (!i) return false; const [ax, az] = PATH[i - 1], [bx, bz] = p; const dx = bx - ax, dz = bz - az; const t = Math.max(0, Math.min(1, ((x - ax) * dx + (z - az) * dz) / (dx * dx + dz * dz))); return Math.hypot(x - ax - dx * t, z - az - dz * t) < 1.5; });
     for (let i = 0; i < 260; i++) {
       const x = -27 + r() * 54, z = -34 - r() * 42;
       if (Math.abs(x) < 3.4) continue;
@@ -213,32 +213,40 @@ const CMARY = {
     const lantern = B.box(0.16, 0.26, 0.16, 0x2a2a2a, sx - 1.5, 0, sz + 1.2, { metal: 0.6 });
     const glowMat = new THREE.MeshBasicMaterial({ color: 0xffb060 });
     const bulb = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.13, 0.12), glowMat); bulb.position.set(sx - 1.5, 0.15, sz + 1.2); bulb.userData.dynamic = true; api.scene.add(bulb);
-    const shedLight = B.light(sx - 0.6, 1.4, sz + 0.6, 0xffa050, 14, 15);
-    const leak = new THREE.MeshBasicMaterial({ color: 0xffa860, transparent: true, opacity: 0.85 });
+    const shedLight = B.light(sx - 0.6, 1.4, sz + 0.6, 0xffa050, 5, 8);
+    const leak = new THREE.MeshBasicMaterial({ color: 0xffa860, transparent: true, opacity: 0.4 });
     const gaps = [[sx + W / 2 + 0.065, 1.2, sz - 0.72, 0.03, 2.0, Math.PI / 2], [sx + W / 2 + 0.065, 1.2, sz + 0.72, 0.03, 2.0, Math.PI / 2],
       [sx + W / 2 + 0.065, 1.3, sz - 1.4, 0.02, 1.6, Math.PI / 2], [sx + W / 2 + 0.065, 1.1, sz + 1.5, 0.02, 1.4, Math.PI / 2],
       [sx + 0.6, 1.2, sz + D / 2 + 0.065, 0.025, 1.8, 0], [sx - 0.7, 1.0, sz + D / 2 + 0.065, 0.02, 1.4, 0], [sx + 0.2, 2.05, sz + D / 2 + 0.065, 2.6, 0.03, 0]];
     for (const [gx, gy, gz, gw, gh, gry] of gaps) { const m = new THREE.Mesh(new THREE.PlaneGeometry(gw, gh), leak); m.position.set(gx, gy, gz); m.rotation.y = gry; m.userData.dynamic = true; api.scene.add(m); }
-    let lt = 0; api.anims.push((dt) => { lt += dt; const k = 0.8 + Math.sin(lt * 9) * 0.05 + (Math.random() < 0.03 ? -0.4 : 0); shedLight.cur = 14 * k; leak.opacity = 0.85 * k; glowMat.color.setRGB(1, 0.69 * k, 0.38 * k); });
-    // trampled footpath from the logging road, past the ribbon, to the shed door
-    const pathMat = B.mat(0x2a2016, { rough: 1 });
-    const pathPts = [[-1.8, -49.2], [-6, -51.4], [-7.4, -56.4], [-8.2, -60.2], [sx + W / 2 + 0.9, sz + 0.2]];
+    // the lantern's battery is dying: it gutters, and every so often goes out for a few seconds
+    let lt = 0, off = 0, nextOff = 6 + Math.random() * 8;
+    api.anims.push((dt) => {
+      lt += dt;
+      if (off > 0) off -= dt; else if (lt > nextOff) { off = 1.5 + Math.random() * 2.5; nextOff = lt + off + 7 + Math.random() * 9; }
+      const k = off > 0 ? 0.02 : 0.75 + Math.sin(lt * 9) * 0.06 + (Math.random() < 0.05 ? -0.45 : 0);
+      shedLight.cur = 5 * k; leak.opacity = 0.4 * k; glowMat.color.setRGB(k, 0.69 * k, 0.38 * k);
+    });
+    // faint, broken trail: starts at the ribbon (not the road), patchy, with only a few boot prints
+    const pr = B.rng(31);
+    const pathMat = B.mat(0x17120d, { rough: 1 }), printMat = B.mat(0x0e0a07, { rough: 1 });
+    const pathPts = [[-6, -51.4], [-7.4, -56.4], [-8.2, -60.2], [sx + W / 2 + 0.9, sz + 0.2]];
     for (let i = 1; i < pathPts.length; i++) {
-      const [ax, az] = pathPts[i - 1], [bx, bz] = pathPts[i], len = Math.hypot(bx - ax, bz - az);
-      const seg = new THREE.Mesh(new THREE.PlaneGeometry(1.1, len + 0.6), pathMat);
-      seg.rotation.order = 'YXZ'; seg.rotation.set(-Math.PI / 2, Math.atan2(bx - ax, bz - az), 0);
-      seg.position.set((ax + bx) / 2, 0.03 + i * 0.001, (az + bz) / 2); seg.receiveShadow = true; api.scene.add(seg);
-      // boot prints along it
-      const n = Math.floor(len / 0.7);
-      for (let k = 0; k < n; k++) {
-        const t = (k + 0.5) / n, px = ax + (bx - ax) * t, pz = az + (bz - az) * t, side = k % 2 ? 0.14 : -0.14;
-        const ang = Math.atan2(bx - ax, bz - az), ox = Math.cos(ang) * side, oz = -Math.sin(ang) * side;
-        const fp = new THREE.Mesh(new THREE.PlaneGeometry(0.11, 0.28), B.mat(0x120d08, { rough: 1 }));
-        fp.rotation.order = 'YXZ'; fp.rotation.set(-Math.PI / 2, ang, 0); fp.position.set(px + ox, 0.04, pz + oz); api.scene.add(fp);
+      const [ax, az] = pathPts[i - 1], [bx, bz] = pathPts[i], len = Math.hypot(bx - ax, bz - az), ang = Math.atan2(bx - ax, bz - az);
+      const pieces = Math.max(1, Math.round(len / 1.3));
+      for (let k = 0; k < pieces; k++) {
+        if (pr() < 0.35) continue; // gaps in the trail
+        const t = (k + 0.5) / pieces, w = 0.5 + pr() * 0.35, l = len / pieces * (0.6 + pr() * 0.4);
+        const seg = new THREE.Mesh(new THREE.PlaneGeometry(w, l), pathMat);
+        seg.rotation.order = 'YXZ'; seg.rotation.set(-Math.PI / 2, ang + (pr() - 0.5) * 0.4, 0);
+        seg.position.set(ax + (bx - ax) * t + (pr() - 0.5) * 0.3, 0.03 + k * 0.0005, az + (bz - az) * t + (pr() - 0.5) * 0.3); seg.receiveShadow = true; api.scene.add(seg);
+        if (pr() < 0.45) {
+          const side = pr() < 0.5 ? 0.13 : -0.13, ox = Math.cos(ang) * side, oz = -Math.sin(ang) * side;
+          const fp = new THREE.Mesh(new THREE.PlaneGeometry(0.11, 0.28), printMat);
+          fp.rotation.order = 'YXZ'; fp.rotation.set(-Math.PI / 2, ang, 0); fp.position.set(seg.position.x + ox, 0.04, seg.position.z + oz); api.scene.add(fp);
+        }
       }
     }
-    // a broken-branch marker where the path leaves the road
-    const br = B.box(0.05, 0.05, 0.9, 0x3a2a18, -2.6, 0.5, -49.4); br.rotation.set(0.4, 0.9, 0.2);
 
     // police car + officer
     B.car(-1.6, 25, { police: true, ry: 0 });
@@ -262,7 +270,7 @@ const CMARY = {
     api.interact({ pos: [-19.2, 0.3, -21], glint: true, label: 'Examine backpack', cond: () => !api.has('backpack'), use: () => { api.sound.page(); api.inspect({ title: "Lily's backpack", text: ['Purple canvas, half pushed under the slide. The search team walked right past it in the dark.', 'The zipper is torn open. The cat keychain Margaret mentioned is gone. Only the snapped ring is left.', 'Inside: a lunchbox, untouched. A spelling worksheet. LILY R. in careful pencil.'], onClose: () => api.give('backpack') }); } });
     api.interact({ pos: [-7, 1.0, -19.6], radius: 2, glint: true, label: 'Examine gate latch', cond: () => !api.has('print'), use: () => api.inspect({ title: 'Playground gate', text: ['The gate is hanging open. Lily always closed it behind her.', 'Under the latch cover the metal is dry. Smooth, cold, a perfect surface.'], actions: [{ label: 'Dust for prints', fn: () => api.print({ seed: 41, surface: 'painted steel' }, () => api.give('print')) }] }) });
     api.interact({ pos: [0, 0.3, -44], radius: 2.6, glint: true, label: 'Examine tire tracks', cond: () => !api.has('tracks'), use: () => api.inspect({ title: 'Tire tracks', text: ['Two lines pressed deep into the mud of the old logging road. Wide wheelbase. Van, not a car.', 'They are fresh. The rain has not softened the edges yet.', 'They go deeper into the woods. They do not come back the same way.'], onClose: () => api.give('tracks') }) });
-    api.interact({ pos: [-6.2, 1.3, -50.7], radius: 2.2, glint: true, label: 'Examine something red', cond: () => !api.has('ribbon'), use: () => { rib.visible = false; api.inspect({ title: 'A red ribbon', text: ['Snagged on a branch about a meter off the ground.', api.has('mom_ribbon') ? "Tied crooked. Margaret said she ties it herself. It's always crooked." : 'Tied crooked, by small hands.', 'Beyond it, a trampled path runs deeper into the trees, toward a dim orange glow. A shed.'], onClose: () => api.give('ribbon') }); } });
+    api.interact({ pos: [-6.2, 1.3, -50.7], radius: 2.2, glint: true, label: 'Examine something red', cond: () => !api.has('ribbon'), use: () => { rib.visible = false; api.inspect({ title: 'A red ribbon', text: ['Snagged on a branch about a meter off the ground.', api.has('mom_ribbon') ? "Tied crooked. Margaret said she ties it herself. It's always crooked." : 'Tied crooked, by small hands.', 'Past it, a few snapped stems and a scuff in the mud lead deeper into the trees.'], onClose: () => api.give('ribbon') }); } });
     api.interact({
       pos: [sx + W / 2 + 0.4, 1.2, sz], radius: 2.6, label: 'Open the shed door', cond: () => !api.has('body'),
       use: () => {
