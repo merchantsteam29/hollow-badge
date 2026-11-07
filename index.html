@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#030407">
+<title>Hollow Badge</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;600;700&family=Special+Elite&family=Cormorant+Garamond:ital,wght@0,500;0,700;1,500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+</head>
+<body>
+<div id="game"></div>
+<div id="vignette"></div>
+<div id="grain"></div>
+<div id="letterbox"><i></i><i></i></div>
+<div id="caption"></div>
+
+<!-- CONTENT WARNING -->
+<div id="warning" class="screen">
+  <div class="warnbox">
+    <div class="warnhead">CONTENT WARNING</div>
+    <p><b>This game is very dark.</b></p>
+    <p>Hollow Badge deals with the kidnapping and murder of an eleven-year-old child, serial murder, death, grief and violence against vulnerable people. A child's body is discovered during play. Nothing graphic is shown, but the themes are disturbing and the endings are not happy.</p>
+    <p>It is meant for mature players (16+). If these subjects are hard for you right now, it is fine to stop here.</p>
+    <div class="row">
+      <button id="warnOk" class="btn">I understand. Continue.</button>
+      <button id="warnNo" class="btn ghost">Leave</button>
+    </div>
+  </div>
+</div>
+
+<!-- MENU -->
+<div id="menu" class="screen hidden">
+  <div class="logo">HOLLOW<span>BADGE</span></div>
+  <div class="tag">Every case closes. None of them end.</div>
+  <div id="caseList"></div>
+  <div class="controls">WASD move · Shift run · Mouse look · E / click examine &amp; talk · F flashlight · Tab notebook · Esc pause</div>
+  <div class="disclaimer">Content warning: very dark themes, including the murder of a child. Fictional towns and people.</div>
+</div>
+
+<!-- INTRO CARD -->
+<div id="intro" class="screen hidden"><div id="introLines"></div></div>
+
+<!-- HUD -->
+<div id="hud" class="hidden">
+  <div id="cross"><i></i></div>
+  <div id="topleft"><div id="caseLabel"></div><div id="objective"></div></div>
+  <div id="toasts"></div>
+  <div id="prompt" class="hidden"></div>
+  <div id="keyhint">E examine · F flashlight · Tab notebook</div>
+</div>
+
+<!-- PAUSE -->
+<div id="pause" class="screen dim hidden">
+  <div class="panel small">
+    <div class="ptitle">PAUSED</div>
+    <div id="pauseObjective" class="muted"></div>
+    <button id="resume" class="btn">Click to resume</button>
+    <button id="openNb" class="btn ghost">Notebook</button>
+    <label>Brightness <input id="sBright" type="range" min="0.5" max="2.2" step="0.05"></label>
+    <label>Mouse sensitivity <input id="sSens" type="range" min="0.3" max="2.5" step="0.05"></label>
+    <label>Volume <input id="sVol" type="range" min="0" max="1" step="0.05"></label>
+    <button id="quit" class="btn ghost">Quit to case files</button>
+  </div>
+</div>
+
+<!-- DIALOG -->
+<div id="dialog" class="hidden">
+  <div class="dbox">
+    <div id="dName"></div>
+    <div id="dText"></div>
+    <div id="dOpts"></div>
+  </div>
+</div>
+
+<!-- INSPECT -->
+<div id="inspect" class="screen dim hidden">
+  <div class="panel paper">
+    <div id="iTitle"></div>
+    <div id="iBody"></div>
+    <div id="iActs" class="row"></div>
+  </div>
+</div>
+
+<!-- FINGERPRINT -->
+<div id="printer" class="screen dim hidden">
+  <div class="panel"><div id="printHost"></div><button id="pClose" class="btn ghost">Cancel</button></div>
+</div>
+
+<!-- NOTEBOOK -->
+<div id="notebook" class="screen dim hidden">
+  <div class="panel paper wide">
+    <div class="nbhead">NOTEBOOK <span id="nbObjective"></span></div>
+    <div class="cols">
+      <div><h3>Evidence</h3><div id="nbEvidence"></div></div>
+      <div><h3>Statements</h3><div id="nbStatements"></div></div>
+      <div><h3>Persons of interest</h3><div id="nbSuspects"></div></div>
+    </div>
+    <button id="nbClose" class="btn ghost">Close (Tab)</button>
+  </div>
+</div>
+
+<!-- CASE BOARD -->
+<div id="board" class="screen dim hidden">
+  <div class="panel cork wide">
+    <div id="bTitle"></div>
+    <div id="bStatus"></div>
+    <div id="bSuspects"></div>
+    <div class="row">
+      <button id="bAccuse" class="btn danger" disabled>Select a suspect</button>
+      <button id="bClose" class="btn ghost">Close</button>
+    </div>
+  </div>
+  <div id="confirm" class="hidden">
+    <div class="panel small"><p id="confirmText"></p><div class="row"><button id="confirmYes" class="btn danger">Charge them</button><button id="confirmNo" class="btn ghost">Not yet</button></div></div>
+  </div>
+</div>
+
+<!-- ENDING -->
+<div id="ending" class="screen hidden">
+  <div class="endbox">
+    <div id="eTitle"></div>
+    <div id="eBody"></div>
+    <div id="eActs" class="row"><button id="eMenu" class="btn">Case files</button><button id="eRetry" class="btn ghost">Replay case</button></div>
+  </div>
+</div>
+
+<script type="module" src="main.js"></script>
+</body>
+</html>
