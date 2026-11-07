@@ -74,6 +74,10 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); c
 @keyframes tin { from { opacity: 0; transform: translateX(20px); } }
 #prompt { position: fixed; left: 50%; top: calc(50% + 46px); transform: translateX(-50%); font-family: 'Oswald', sans-serif; letter-spacing: 0.1em; font-size: 15px; text-shadow: 0 1px 8px #000; white-space: nowrap; }
 .key { display: inline-block; border: 1px solid var(--ink); padding: 0 6px; margin-right: 8px; font-size: 12px; }
+#fps { position: fixed; bottom: 14px; right: 20px; font-family: 'Special Elite', monospace; font-size: 12px; color: #c9e0b0; text-shadow: 0 1px 4px #000; max-width: 60vw; text-align: right; }
+#gpuWarn { max-width: 640px; margin: -18px 0 24px; padding: 12px 16px; border: 1px solid #a8862a; background: rgba(40, 30, 8, 0.85); font-size: 16px; line-height: 1.45; color: #ead9a8; }
+.gpu { margin-top: 6px; font-size: 12px; font-family: 'Special Elite', monospace; }
+.panel label.check { flex-direction: row; align-items: center; gap: 8px; }
 #keyhint { position: fixed; bottom: 14px; left: 20px; font-family: 'Special Elite', monospace; font-size: 12px; color: rgba(138,131,119,0.7); }
 
 /* panels */

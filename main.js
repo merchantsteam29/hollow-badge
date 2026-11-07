@@ -37,7 +37,7 @@ renderer.shadowMap.type = THREE.PCFShadowMap;
 $('game').appendChild(renderer.domElement);
 const canvas = renderer.domElement;
 
-const camera = new THREE.PerspectiveCamera(70, innerWidth / innerHeight, 0.05, 160);
+const camera = new THREE.PerspectiveCamera(70, innerWidth / innerHeight, 0.05, 70);
 camera.rotation.order = 'YXZ';
 addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
 
@@ -87,6 +87,21 @@ function updatePool() {
   });
 }
 
+// ---------- GPU check ----------
+// If Chrome is drawing on the CPU (hardware acceleration off or GPU blocked), the game will be choppy on any PC.
+const GPU = (() => {
+  try { const gl = renderer.getContext(); const ext = gl.getExtension('WEBGL_debug_renderer_info'); return String(ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER)); } catch { return 'unknown'; }
+})();
+const SOFTWARE_GPU = /swiftshader|llvmpipe|softpipe|software|basic render/i.test(GPU);
+if (SOFTWARE_GPU && !settings.qualityManual) settings.quality = 'low';
+
+let fpsAcc = 0, fpsN = 0;
+function updateFps(dt) {
+  if (!settings.showFps) return;
+  fpsAcc += dt; fpsN++;
+  if (fpsAcc >= 0.5) { $('fps').textContent = Math.round(fpsN / fpsAcc) + ' FPS · ' + settings.quality.toUpperCase() + ' · ' + GPU; fpsAcc = 0; fpsN = 0; }
+}
+
 // ---------- state ----------
 let scene = null, G = null, state = 'warning';
 const keys = {};
@@ -124,11 +139,11 @@ function startCase(def) {
   scene.add(camera);
 
   G = {
-    def, clues: new Set(), asked: new Set(), flags: {}, colliders: [], lamps: [], lights: [], anims: [], interacts: [], pool: [],
+    def, clues: new Set(), asked: new Set(), flags: {}, colliders: [], lamps: [], lights: [], anims: [], interacts: [], pool: [], cull: [],
     pos: new THREE.Vector3(def.spawn.x, 0, def.spawn.z), yaw: def.spawn.yaw, pitch: 0, bob: 0, stepAcc: 0,
     ui: null, cut: null, flashOn: true, flashFlicker: 0, t: 0, zone: null, ambience: null, nearest: null, perf: { t: 0, n: 0, checks: 0 },
   };
-  B.init({ scene, colliders: G.colliders, lamps: G.lamps, lights: G.lights, anims: G.anims });
+  B.init({ scene, colliders: G.colliders, lamps: G.lamps, lights: G.lights, anims: G.anims, cull: G.cull, cheap: settings.quality === 'low' });
   G.rain = makeRain(Q().rain); scene.add(G.rain);
   def.build(api);
   B.staticBatch(scene);
@@ -447,8 +462,12 @@ bindSlider('sSens', 'sens', () => {});
 bindSlider('sVol', 'vol', (v) => sound.setVolume(v));
 function syncQualityUI() { $('sQuality').value = settings.quality; }
 syncQualityUI();
-$('sQuality').onchange = () => { settings.quality = $('sQuality').value; settings.qualityManual = true; saveSettings(); applyQuality(); };
+$('sQuality').onchange = () => { const was = settings.quality; settings.quality = $('sQuality').value; settings.qualityManual = true; saveSettings(); applyQuality(); if (G && state === 'play' && (was === 'low') !== (settings.quality === 'low')) toast('Some changes apply fully the next time you start a case'); };
 $('grain').classList.toggle('hidden', !Q().grain);
+$('sFps').checked = !!settings.showFps; $('fps').classList.toggle('hidden', !settings.showFps);
+$('sFps').onchange = () => { settings.showFps = $('sFps').checked; saveSettings(); $('fps').classList.toggle('hidden', !settings.showFps); };
+if (SOFTWARE_GPU) { $('gpuWarn').classList.remove('hidden'); if (!settings.qualityManual) { applyQuality(); syncQualityUI(); } }
+$('gpuName').textContent = GPU;
 $('nbClose').onclick = () => closeUI();
 $('pClose').onclick = () => closeUI();
 
@@ -616,6 +635,8 @@ function frame(now) {
   }
   for (const a of G.anims) a(dt);
   updatePool();
+  for (const c of G.cull) c.obj.visible = c.c.distanceTo(camera.position) - c.r < 38;
+  updateFps(dt);
   updateRain(dt);
   if (state === 'play' && !G.cut && !G.ui) autoQuality(dt);
   renderer.render(scene, camera);

@@ -5,11 +5,17 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 let C = null; // { scene, colliders, lamps, lights, anims }
 export function init(ctx) { C = ctx; }
 
+// On Low quality every surface uses the cheaper Lambert shading (no metal/roughness maths).
+function surface(p) {
+  if (C && C.cheap) { const { roughness, metalness, ...rest } = p; return new THREE.MeshLambertMaterial(rest); }
+  return new THREE.MeshStandardMaterial(p);
+}
+
 const mats = new Map();
 export function mat(color, o = {}) {
   const k = color + '|' + JSON.stringify(o);
   if (!mats.has(k)) {
-    mats.set(k, new THREE.MeshStandardMaterial({
+    mats.set(k, surface({
       color, roughness: o.rough ?? 0.92, metalness: o.metal ?? 0,
       emissive: o.emissive ?? 0x000000, emissiveIntensity: o.ei ?? 1,
       transparent: o.opacity !== undefined, opacity: o.opacity ?? 1,
@@ -18,7 +24,7 @@ export function mat(color, o = {}) {
   }
   return mats.get(k);
 }
-export function clearCache() { mats.forEach((m) => m.dispose()); mats.clear(); }
+export function clearCache() { mats.forEach((m) => m.dispose()); mats.clear(); resetShared(); }
 
 export function rng(seed) { let s = seed >>> 0; return () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296); }
 
@@ -65,7 +71,7 @@ export function decal(draw, w, h, x, y, z, o = {}) {
   const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
   const material = o.glow
     ? new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false })
-    : new THREE.MeshStandardMaterial({ map: tex, transparent: true, depthWrite: false, roughness: 0.95 });
+    : surface({ map: tex, transparent: true, depthWrite: false, roughness: 0.95 });
   const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), material);
   m.position.set(x, y, z);
   if (o.ry !== undefined) m.rotation.y = o.ry;
@@ -157,7 +163,7 @@ export function light(x, y, z, color, intensity, dist = 12) {
 export function lamp(x, z, o = {}) {
   const color = o.color ?? 0xffb466;
   cyl(0.07, 0.1, 4.6, 0x111214, x, 0, z, { metal: 0.6, rough: 0.5 });
-  const bulbMat = new THREE.MeshStandardMaterial({ color: 0x000000, emissive: color, emissiveIntensity: 2.2 });
+  const bulbMat = surface({ color: 0x000000, emissive: color, emissiveIntensity: 2.2 });
   const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.16, 10, 8), bulbMat);
   bulb.position.set(x, 4.55, z); C.scene.add(bulb);
   box(0.5, 0.12, 0.5, 0x111214, x, 4.7, z, { shadow: false });
@@ -183,26 +189,46 @@ export function setLamp(rec, on, k = 1) {
   rec.bulbMat.emissiveIntensity = on ? 2.2 * k : 0;
 }
 
-// Instanced forest: [{x,z,s}]
-export function forest(list) {
-  const n = list.length; if (!n) return;
-  const trunkG = new THREE.CylinderGeometry(0.12, 0.22, 2.4, 6);
-  const coneG = new THREE.ConeGeometry(1.4, 2.8, 7);
-  const trunk = new THREE.InstancedMesh(trunkG, mat(0x1a120c), n);
-  const tiers = [0, 1, 2].map(() => new THREE.InstancedMesh(coneG, mat(0x0a120d), n));
-  const m = new THREE.Matrix4(), q = new THREE.Quaternion(), s = new THREE.Vector3(), p = new THREE.Vector3();
-  list.forEach((t, i) => {
-    const sc = t.s || 1;
-    q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), t.x * 3.1 + t.z);
-    m.compose(p.set(t.x, 1.2 * sc, t.z), q, s.set(sc, sc, sc)); trunk.setMatrixAt(i, m);
-    tiers.forEach((mesh, k) => {
-      const ks = sc * (1 - k * 0.22);
-      m.compose(p.set(t.x, (2.6 + k * 1.5) * sc, t.z), q, s.set(ks, sc, ks)); mesh.setMatrixAt(i, m);
-    });
-    collider(t.x - 0.3 * sc, t.z - 0.3 * sc, t.x + 0.3 * sc, t.z + 0.3 * sc);
-  });
-  for (const mesh of [trunk, ...tiers]) { mesh.castShadow = true; mesh.receiveShadow = true; C.scene.add(mesh); }
+// Forest: one merged tree shape (vertex-coloured), instanced per 12 m chunk.
+// Chunks behind the camera are frustum-culled, and chunks deep in the fog are hidden (C.cull).
+let treeGeo = null, treeMat = null;
+function makeTree() {
+  const paint = (g, hex) => {
+    const c = new THREE.Color(hex), n = g.attributes.position.count, arr = new Float32Array(n * 3);
+    for (let i = 0; i < n; i++) arr.set([c.r, c.g, c.b], i * 3);
+    g.setAttribute('color', new THREE.BufferAttribute(arr, 3)); return g;
+  };
+  const parts = [paint(new THREE.CylinderGeometry(0.12, 0.22, 2.4, 5).translate(0, 1.2, 0), 0x1a120c)];
+  for (let k = 0; k < 3; k++) parts.push(paint(new THREE.ConeGeometry(1.4 * (1 - k * 0.22), 2.8, 6).translate(0, 2.6 + k * 1.5, 0), 0x0a120d));
+  treeGeo = mergeGeometries(parts, false); parts.forEach((g) => g.dispose());
+  treeMat = new THREE.MeshLambertMaterial({ vertexColors: true });
 }
+export function forest(list) {
+  if (!list.length) return;
+  if (!treeGeo || !treeGeo.attributes.position) makeTree();
+  const chunks = new Map();
+  for (const t of list) {
+    const k = Math.floor(t.x / 12) + ',' + Math.floor(t.z / 12);
+    if (!chunks.has(k)) chunks.set(k, []);
+    chunks.get(k).push(t);
+    const sc = t.s || 1;
+    collider(t.x - 0.3 * sc, t.z - 0.3 * sc, t.x + 0.3 * sc, t.z + 0.3 * sc);
+  }
+  const m = new THREE.Matrix4(), q = new THREE.Quaternion(), s = new THREE.Vector3(), p = new THREE.Vector3(), up = new THREE.Vector3(0, 1, 0);
+  for (const trees of chunks.values()) {
+    const mesh = new THREE.InstancedMesh(treeGeo, treeMat, trees.length);
+    trees.forEach((t, i) => {
+      const sc = t.s || 1;
+      q.setFromAxisAngle(up, t.x * 3.1 + t.z);
+      mesh.setMatrixAt(i, m.compose(p.set(t.x, 0, t.z), q, s.set(sc, sc, sc)));
+    });
+    mesh.computeBoundingSphere();
+    mesh.castShadow = true; mesh.receiveShadow = true; mesh.userData.dynamic = true;
+    C.scene.add(mesh);
+    if (C.cull) C.cull.push({ obj: mesh, c: mesh.boundingSphere.center.clone(), r: mesh.boundingSphere.radius });
+  }
+}
+export function resetShared() { if (treeGeo) treeGeo.dispose(); if (treeMat) treeMat.dispose(); treeGeo = treeMat = null; }
 
 // Low-poly person. Faces +z before rotY. pose: stand | sit | lie (face down)
 export function person(x, z, o = {}) {
@@ -271,8 +297,8 @@ export function car(x, z, o = {}) {
   const ry = o.ry || 0, side = Math.abs(Math.sin(ry)) > 0.5;
   collider(x - (side ? 2.3 : 1.0), z - (side ? 1.0 : 2.3), x + (side ? 2.3 : 1.0), z + (side ? 1.0 : 2.3));
   if (o.police) {
-    const red = new THREE.MeshStandardMaterial({ color: 0, emissive: 0xff1020, emissiveIntensity: 0 });
-    const blue = new THREE.MeshStandardMaterial({ color: 0, emissive: 0x1840ff, emissiveIntensity: 0 });
+    const red = surface({ color: 0, emissive: 0xff1020, emissiveIntensity: 0 });
+    const blue = surface({ color: 0, emissive: 0x1840ff, emissiveIntensity: 0 });
     box(0.6, 0.14, 0.25, 0, -0.35, 1.32, -0.2, { parent: grp, material: red, shadow: false });
     box(0.6, 0.14, 0.25, 0, 0.35, 1.32, -0.2, { parent: grp, material: blue, shadow: false });
     const pl = light(x, 1.9, z - 0.2 * Math.cos(ry), 0xff1020, 0, 14);
