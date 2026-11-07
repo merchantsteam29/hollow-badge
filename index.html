@@ -2,7 +2,9 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#030407">
 <title>Hollow Badge</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -44,7 +46,8 @@
   <div class="tag">Every case closes. None of them end.</div>
   <div id="gpuWarn" class="hidden"><b>Chrome isn't using your graphics card</b>, so the game will be choppy, even on a gaming PC. To fix it, open Chrome's <b>Settings → System</b>, turn on <b>Use graphics acceleration when available</b>, and click <b>Relaunch</b>. If it's already on, type <b>chrome://gpu</b> in the address bar and check whether WebGL says Hardware accelerated.</div>
   <div id="caseList"></div>
-  <div class="controls">WASD move · Shift run · Mouse look · E / click examine &amp; talk · F flashlight · Tab notebook · Esc pause</div>
+  <div class="controls desk">WASD move · Shift run · Mouse look · E / click examine &amp; talk · F flashlight · Tab notebook · Esc pause</div>
+  <div class="controls mob">Left thumb: move (push far to run) · Right thumb: look · tap the button that appears to examine &amp; talk</div>
   <div class="gpu muted">Graphics: <span id="gpuName"></span></div>
   <div class="disclaimer">Content warning: very dark themes, including the murder of a child. Fictional towns and people.</div>
 </div>
@@ -60,6 +63,18 @@
   <div id="prompt" class="hidden"></div>
   <div id="fps" class="hidden"></div>
   <div id="keyhint">E examine · F flashlight · Tab notebook</div>
+  <div id="touch">
+    <div id="stickZone"></div>
+    <div id="lookZone"></div>
+    <div id="stick"><div id="stickKnob"></div></div>
+    <button id="tAct" class="tbtn act hidden">Examine</button>
+    <div class="tcol">
+      <button id="tPause" class="tbtn small">II</button>
+      <button id="tNote" class="tbtn small">NOTES</button>
+      <button id="tFlash" class="tbtn small">LIGHT</button>
+    </div>
+  </div>
+  <div id="rotateHint">Turn your phone sideways for the best view</div>
 </div>
 
 <!-- PAUSE -->

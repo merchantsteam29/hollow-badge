@@ -16,6 +16,12 @@ const saveSettings = () => { try { localStorage.setItem('hb_settings', JSON.stri
 const results = (() => { try { return JSON.parse(localStorage.getItem('hb_results') || '{}'); } catch { return {}; } })();
 const saveResults = () => { try { localStorage.setItem('hb_results', JSON.stringify(results)); } catch {} };
 
+// ---------- touch / mobile ----------
+// Touch mode: on-screen stick (left), drag to look (right), buttons. Turns on for phones/tablets,
+// or the first time anyone touches the screen.
+const TOUCH = { on: matchMedia('(pointer: coarse)').matches, mx: 0, mz: 0, run: false };
+if (TOUCH.on && !settings.qualityManual) settings.quality = 'low';
+
 // ---------- graphics quality ----------
 // ratio: render resolution, shadow: flashlight shadow map size (0 = off), pool: real point lights, rain: drop count
 const QUALITY = {
@@ -166,7 +172,11 @@ function playIntro(def) {
   });
   const go = document.createElement('button'); go.className = 'btn ghost'; go.textContent = 'Begin investigation';
   go.style.animationDelay = `${def.intro.length * 1.6}s`; go.classList.add('fadein');
-  go.onclick = () => { el.classList.add('hidden'); state = 'play'; $('hud').classList.remove('hidden'); lock(); };
+  go.onclick = () => {
+    el.classList.add('hidden'); state = 'play'; $('hud').classList.remove('hidden');
+    if (TOUCH.on) goFullscreen();
+    lock();
+  };
   lines.appendChild(go);
 }
 
@@ -221,11 +231,15 @@ function toast(text) {
 
 // ---------- pointer lock / UI ----------
 const locked = () => document.pointerLockElement === canvas;
+// 'active' = the player is in control: pointer-locked on desktop, or not paused in touch mode.
+const active = () => (TOUCH.on ? $('pause').classList.contains('hidden') : locked());
 function lock() {
+  if (TOUCH.on) { showPause(false); return; }
   try { const p = canvas.requestPointerLock(); if (p && p.catch) p.catch(() => {}); } catch {}
   setTimeout(() => { if (state === 'play' && !G.ui && !G.cut && !locked()) showPause(true); }, 400);
 }
 document.addEventListener('pointerlockchange', () => {
+  if (TOUCH.on) return;
   if (locked()) showPause(false);
   else if (state === 'play' && G && !G.ui && !G.cut) showPause(true);
 });
@@ -469,6 +483,7 @@ $('sFps').onchange = () => { settings.showFps = $('sFps').checked; saveSettings(
 if (SOFTWARE_GPU) { $('gpuWarn').classList.remove('hidden'); if (!settings.qualityManual) { applyQuality(); syncQualityUI(); } }
 $('gpuName').textContent = GPU;
 $('nbClose').onclick = () => closeUI();
+$('notebook').addEventListener('click', (e) => { if (e.target.id === 'notebook') closeUI(); });
 $('pClose').onclick = () => closeUI();
 
 // ---------- input ----------
@@ -505,6 +520,88 @@ function useNearest() {
   if (it.once) { it.alive = false; if (it.sprite) it.sprite.visible = false; }
 }
 
+// ---------- touch controls ----------
+function setTouchMode(on) {
+  TOUCH.on = on;
+  document.body.classList.toggle('touch', on);
+  if (on && document.pointerLockElement) document.exitPointerLock();
+}
+function goFullscreen() {
+  const d = document.documentElement;
+  try {
+    const p = d.requestFullscreen ? d.requestFullscreen({ navigationUI: 'hide' }) : d.webkitRequestFullscreen && d.webkitRequestFullscreen();
+    if (p && p.then) p.then(() => { if (screen.orientation && screen.orientation.lock) screen.orientation.lock('landscape').catch(() => {}); }).catch(() => {});
+  } catch {}
+}
+function updateTouchAct(best) {
+  const b = $('tAct');
+  const show = TOUCH.on && best && state === 'play' && !G.ui && !G.cut && active();
+  b.classList.toggle('hidden', !show);
+  if (show) {
+    const label = typeof best.label === 'function' ? best.label() : best.label;
+    if (b.dataset.l !== label) { b.dataset.l = label; b.textContent = label; }
+  }
+}
+(() => {
+  setTouchMode(TOUCH.on);
+  addEventListener('touchstart', () => { if (!TOUCH.on) setTouchMode(true); }, { passive: true });
+  const zoneL = $('stickZone'), zoneR = $('lookZone'), stick = $('stick'), knob = $('stickKnob');
+  let sId = null, sx = 0, sy = 0, lId = null, lx = 0, ly = 0;
+  const R = 60;
+  const resetStick = () => { sId = null; TOUCH.mx = TOUCH.mz = 0; TOUCH.run = false; stick.classList.remove('on', 'run'); };
+
+  // left side: a floating stick that appears where the thumb lands
+  zoneL.addEventListener('pointerdown', (e) => {
+    if (sId !== null) return;
+    sId = e.pointerId; sx = e.clientX; sy = e.clientY; zoneL.setPointerCapture(e.pointerId);
+    stick.style.left = sx + 'px'; stick.style.top = sy + 'px'; knob.style.transform = 'translate(-50%,-50%)';
+    stick.classList.add('on'); e.preventDefault();
+  });
+  zoneL.addEventListener('pointermove', (e) => {
+    if (e.pointerId !== sId) return;
+    let dx = e.clientX - sx, dy = e.clientY - sy;
+    const d = Math.hypot(dx, dy);
+    if (d > R) { dx *= R / d; dy *= R / d; }
+    knob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+    const k = Math.min(1, d / R), dead = 0.15;
+    const mag = k < dead ? 0 : (k - dead) / (1 - dead);
+    const cd = Math.min(d, R) || 1;
+    TOUCH.mx = (dx / cd) * mag; TOUCH.mz = (-dy / cd) * mag;
+    TOUCH.run = d > R * 1.15;
+    stick.classList.toggle('run', TOUCH.run);
+  });
+  const endL = (e) => { if (e.pointerId === sId) resetStick(); };
+  zoneL.addEventListener('pointerup', endL); zoneL.addEventListener('pointercancel', endL);
+
+  // right side: drag to look
+  zoneR.addEventListener('pointerdown', (e) => {
+    if (lId !== null) return;
+    lId = e.pointerId; lx = e.clientX; ly = e.clientY; zoneR.setPointerCapture(e.pointerId); e.preventDefault();
+  });
+  zoneR.addEventListener('pointermove', (e) => {
+    if (e.pointerId !== lId) return;
+    if (G && !G.ui && !G.cut && active()) {
+      const s = 0.0058 * settings.sens;
+      G.yaw -= (e.clientX - lx) * s; G.pitch -= (e.clientY - ly) * s;
+      G.pitch = Math.max(-1.45, Math.min(1.45, G.pitch));
+    }
+    lx = e.clientX; ly = e.clientY;
+  });
+  const endR = (e) => { if (e.pointerId === lId) lId = null; };
+  zoneR.addEventListener('pointerup', endR); zoneR.addEventListener('pointercancel', endR);
+
+  const tap = (id, fn) => $(id).addEventListener('pointerdown', (e) => {
+    e.preventDefault(); e.stopPropagation();
+    if (state === 'play' && G && !G.cut && !G.ui) fn();
+  });
+  tap('tAct', () => { if (G.nearest) { resetStick(); useNearest(); } });
+  tap('tFlash', () => api.flash(!G.flashOn));
+  tap('tNote', () => { resetStick(); openNotebook(); });
+  tap('tPause', () => { resetStick(); showPause(true); });
+  // keep the page from scrolling or zooming during play
+  document.addEventListener('touchmove', (e) => { if (state === 'play' && e.target.closest && e.target.closest('#touch')) e.preventDefault(); }, { passive: false });
+})();
+
 // ---------- per-frame ----------
 const R = 0.38;
 function collide(p) {
@@ -522,17 +619,18 @@ function collide(p) {
 
 const fwd = new THREE.Vector3(), tmp = new THREE.Vector3();
 function updatePlayer(dt) {
-  const canMove = locked() && !G.ui;
+  const canMove = active() && !G.ui;
   let mx = 0, mz = 0;
   if (canMove) {
     if (keys.KeyW || keys.ArrowUp) mz += 1; if (keys.KeyS || keys.ArrowDown) mz -= 1;
     if (keys.KeyD || keys.ArrowRight) mx += 1; if (keys.KeyA || keys.ArrowLeft) mx -= 1;
+    mx += TOUCH.mx; mz += TOUCH.mz;
   }
-  const run = keys.ShiftLeft || keys.ShiftRight;
+  const run = keys.ShiftLeft || keys.ShiftRight || (canMove && TOUCH.run);
   const sp = run ? 5.2 : 2.9;
   const moving = mx || mz;
   if (moving) {
-    const l = Math.hypot(mx, mz); mx /= l; mz /= l;
+    const l = Math.hypot(mx, mz); if (l > 1) { mx /= l; mz /= l; }
     const sy = Math.sin(G.yaw), cy = Math.cos(G.yaw);
     G.pos.x += (-sy * mz + cy * mx) * sp * dt;
     G.pos.z += (-cy * mz - sy * mx) * sp * dt;
@@ -568,7 +666,8 @@ function updateInteract() {
   }
   G.nearest = best;
   const pr = $('prompt');
-  if (best && !G.ui && locked()) {
+  updateTouchAct(best);
+  if (best && !G.ui && active() && !TOUCH.on) {
     const label = typeof best.label === 'function' ? best.label() : best.label;
     pr.innerHTML = `<span class="key">E</span>${label}`; pr.classList.remove('hidden');
     $('cross').classList.add('active');

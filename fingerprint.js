@@ -45,7 +45,7 @@ export function openPrint(host, { seed = 7, scar = false, surface = 'metal' }, o
   host.innerHTML = `
     <div class="fp-wrap">
       <div class="fp-title">DUST FOR PRINTS</div>
-      <div class="fp-sub">Hold the mouse and brush the powder across the surface.</div>
+      <div class="fp-sub">${document.body.classList.contains('touch') ? 'Drag your finger' : 'Hold the mouse and drag'} to brush the powder across the surface.</div>
       <canvas class="fp-canvas" width="${S}" height="${S}"></canvas>
       <div class="fp-bar"><div class="fp-fill"></div></div>
       <div class="fp-status">Surface: ${surface}</div>
