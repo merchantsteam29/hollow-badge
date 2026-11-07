@@ -591,7 +591,7 @@ const WING = {
     // Father Morrow: cassock, clerical collar, hands clasped
     B.person(-3.2, -63.6, { old: true, coat: 0x0c0c0e, coatLen: 'long', shirt: 0x0c0c0e, pants: 0x0c0c0e, collar: true, hair: 0xa8a8a8, hairStyle: 'bald', glasses: true, skin: 0x9a8070, arms: 'clasp', ry: 0 });
     // the man in the morgue: too human. Grey skin, black lenses that catch the light, a smile too wide for his face
-    const stranger = B.person(8.3, -53.8, { coat: 0x22222a, coatLen: 'long', shirt: 0x5a5a60, tie: 0x0a0a0a, pants: 0x16161a, hat: 'fedora', hatColor: 0x060606, glasses: true, blackLenses: true, grin: true, hair: 0x3a3a3a, skin: 0xb4b0a8, arms: 'eat', ry: Math.PI / 2 + 0.5, scale: 1.08, idle: false, look: false, collide: false });
+    const stranger = B.person(8.3, -53.8, { coat: 0x22222a, coatLen: 'long', shirt: 0x5a5a60, tie: 0x0a0a0a, pants: 0x16161a, hat: 'fedora', hatColor: 0x060606, glasses: true, blackLenses: true, grin: true, hair: 0x3a3a3a, skin: 0xb4b0a8, arms: 'eat', ry: Math.PI / 2 + 0.5, scale: 1.08, idle: false, look: false, collide: false, rig: true });
     stranger.userData.noCull = true;
     stranger.userData.spine.rotation.x = 0.5;
     // whatever he is eating: dark, wet, never shown clearly
@@ -626,6 +626,33 @@ const WING = {
     // ---------- the morgue: he is inside, eating ----------
     let chew = null, tubeOn = false, headTurn = 0, doorOpen = 0;
     const sSpine = stranger.userData.spine, sHead = stranger.userData.head, sInner = stranger.userData.inner;
+    const sLegs = stranger.userData.legs, sArms = stranger.userData.arms;
+    // poses
+    function poseStand() { for (const l of sLegs) { l.hip.rotation.set(0, 0, 0); l.knee.rotation.set(0, 0, 0); } }
+    function poseReach() { // arms out toward you
+      for (const a of sArms) { a.shoulder.rotation.set(-1.35, 0, a.side * 0.12); a.elbow.rotation.set(-0.25, 0, 0); }
+    }
+    function poseKneel() { // knees on the road, hands cuffed behind his back
+      for (const l of sLegs) { l.hip.rotation.set(-0.12, 0, l.side * 0.06); l.knee.rotation.set(1.5, 0, 0); }
+      for (const a of sArms) { a.shoulder.rotation.set(0.5, 0, -a.side * 0.18); a.elbow.rotation.set(-0.55, 0, 0); }
+    }
+    // run cycle: phase advances with distance covered, so faster = longer, quicker strides
+    let runPhase = 0;
+    function runCycle(dist) {
+      runPhase += dist * 2.2;
+      const ph = runPhase;
+      for (const l of sLegs) {
+        const p = ph + (l.side > 0 ? 0 : Math.PI);
+        l.hip.rotation.x = -Math.sin(p) * 0.78;                        // thigh swings forward/back
+        l.knee.rotation.x = 0.25 + Math.max(0, Math.sin(p - 1.2)) * 1.35; // shin folds up behind as the leg comes through
+      }
+      for (const a of sArms) {
+        const p = ph + (a.side > 0 ? Math.PI : 0);                     // arms pump opposite to the legs
+        a.shoulder.rotation.set(-Math.sin(p) * 0.7 - 0.15, 0, a.side * 0.1);
+        a.elbow.rotation.set(-1.25 - Math.sin(p) * 0.2, 0, 0);
+      }
+      sInner.position.y = Math.abs(Math.sin(ph)) * 0.075;              // bob twice per stride
+    }
     api.anims.push((dt) => {
       if (doorOpen > 0 && doorOpen < 1) { doorOpen = Math.min(1, doorOpen + dt * 0.6); mdoor.rotation.y = -1.65 * (1 - Math.pow(1 - doorOpen, 3)); }
       if (chew) { const t = performance.now() / 1000; sHead.rotation.x = -0.12 + Math.sin(t * 13) * 0.07; sSpine.rotation.x = 0.5 + Math.sin(t * 6.5) * 0.035; lump.rotation.y += dt * 0.6; }
@@ -645,6 +672,7 @@ const WING = {
       stopChewing();
       placeStranger(MX0 + 0.42, -53.5, -Math.PI / 2); lump.visible = false;
       sSpine.rotation.set(0.12, 0, 0); sHead.rotation.set(0.05, 0, 0.22); headTurn = 1;
+      poseStand(); poseReach();
       tubeOn = true;
       api.sound.scream(); api.voice('man.scream');
       api.shake(1.4); api.jolt('white');
@@ -683,7 +711,8 @@ const WING = {
       api.setPlayer(4.4, -53.5, Math.PI, 0);
       placeStranger(6.6, -53.5, -Math.PI / 2);
       lump.visible = false;
-      sSpine.rotation.set(0.32, 0, 0); sHead.rotation.set(-0.1, 0, 0.3);
+      sSpine.rotation.set(0.38, 0, 0); sHead.rotation.set(-0.25, 0, 0.3);
+      poseStand(); runPhase = 0; runCycle(0); sInner.position.y = 0;
       chase.on = true; chase.t = 0; chase.lunge = 0; chase.nextLunge = 3.5 + Math.random() * 2;
       tubeOn = false; tubeLight.cur = 0; tubeMat.color.setRGB(0.1, 0.1, 0.1);
       api.refresh();
@@ -708,13 +737,15 @@ const WING = {
       if (chase.nextLunge <= 0) { chase.lunge = 0.55; chase.nextLunge = 3.5 + Math.random() * 2.5; if (!api.voice('man.breath')) api.sound.growl(); }
       chase.lunge = Math.max(0, chase.lunge - dt);
       const speed = d > 14 ? 6.2 : chase.lunge > 0 ? 5.9 : 4.75; // faster than walking, a little slower than running
-      tmpV.multiplyScalar(Math.min(d, speed * dt) / d);
+      const stepLen = Math.min(d, speed * dt);
+      tmpV.multiplyScalar(stepLen / d);
       s.add(tmpV);
+      runCycle(stepLen);
       if (s.x < 5.2) api.collide(s, 0.35);
       stranger.rotation.y = Math.atan2(p.x - s.x, p.z - s.z);
-      // a lurching, wrong gait: no legs moving, just a jerking bob and sway
-      sInner.position.y = Math.abs(Math.sin(chase.t * 8.5)) * 0.09;
-      sSpine.rotation.z = Math.sin(chase.t * 4.25) * 0.16;
+      // he runs, but wrong: a twisting lean and a head that will not sit still
+      sSpine.rotation.z = Math.sin(runPhase * 0.5) * 0.12;
+      sSpine.rotation.y = Math.sin(runPhase) * 0.12;
       sHead.rotation.z = 0.3 + Math.sin(chase.t * 13) * 0.08;
       chase.step -= dt; if (chase.step <= 0) { chase.step = 0.24; api.sound.tap(); if (Math.random() < 0.15) api.sound.growl(); }
     });
@@ -730,13 +761,14 @@ const WING = {
       // he stops in the road a few metres behind you, in Holt's torchlight
       const sx = 1.2, sz = Math.min(p.z - 3.2, HOLT.z - 7.5);
       placeStranger(sx, sz, Math.atan2(HOLT.x - sx, HOLT.z - sz));
-      sInner.position.y = 0; sSpine.rotation.z = 0; sHead.rotation.set(-0.1, 0, 0.35);
+      sInner.position.y = 0; sSpine.rotation.set(0.15, 0, 0); sHead.rotation.set(-0.1, 0, 0.35); poseStand();
+      for (const a of sArms) { a.shoulder.rotation.set(0.05, 0, a.side * 0.09); a.elbow.rotation.set(-0.18, 0, 0); }
       api.lamps.forEach((l) => B.setLamp(l, true));
       api.setPlayer(Math.max(-3, Math.min(3.8, p.x)), Math.max(p.z, sz + 3.2), Math.PI);
       api.cutscene([
         { pos: [HOLT.x - 1.0, 1.75, HOLT.z - 0.9], look: [sx, 1.55, sz], dur: 0.9, ...C('wing', 'arrest', 0), onStart: () => api.sound.click() },
         { hold: 2.6, ...C('wing', 'arrest', 1) },
-        { hold: 3.2, ...C('wing', 'arrest', 2), onStart: () => { sInner.position.y = -0.4; sSpine.rotation.x = 0.25; sHead.rotation.set(0.15, 0, 0.35); if (!api.voice('man.laugh')) api.sound.growl(); } },
+        { hold: 3.2, ...C('wing', 'arrest', 2), onStart: () => { poseKneel(); sInner.position.y = -0.47; sSpine.rotation.set(0.08, 0, 0); sHead.rotation.set(0.15, 0, 0.35); if (!api.voice('man.laugh')) api.sound.growl(); } },
         { pos: [sx - 2.0, 2.1, sz - 3.4], look: [HOLT.x - 0.9, 1.0, HOLT.z - 1.5], dur: 1.8, ...C('wing', 'arrest', 3) },
         { hold: 3.6, ...C('wing', 'arrest', 4) },
       ], () => {

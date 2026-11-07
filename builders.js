@@ -303,6 +303,7 @@ export function person(x, z, o = {}) {
   const H = sit ? (o.seatH ?? 0.56) : 0.9;
 
   // ---- legs (each a hip group with a knee group, so poses can bend them) ----
+  const legs = [];
   for (const sx of [-1, 1]) {
     const hipG = new THREE.Group(); hipG.position.set(sx * 0.095 * W, H, 0); g.add(hipG);
     cap(0.078 * W, 0.3, M.pants, 0, -0.22, 0, hipG);
@@ -310,6 +311,7 @@ export function person(x, z, o = {}) {
     cap(0.062 * W, 0.3, M.pants, 0, -0.2, 0, knee);
     cube(0.105, 0.085, 0.27, M.shoe, 0, -0.42, 0.045, knee);
     if (sit) { hipG.rotation.x = -Math.PI / 2 + 0.08; knee.rotation.x = Math.PI / 2 - 0.08; hipG.rotation.y = sx * 0.08; }
+    legs.push({ hip: hipG, knee, side: sx });
   }
   // pelvis
   ball(0.17, M.pants, 0, H + 0.03, 0, g, ((female ? 0.135 : 0.15) / 0.17) * W, 0.55, 0.58);
@@ -356,7 +358,7 @@ export function person(x, z, o = {}) {
     flashlight: [[-0.1, 0, 0.08], [-0.5, 0]], cane: [[-0.12, 0, 0.12], [-0.3, 0]], eat: [[-0.6, 0, -0.18], [-1.95, 0.55]],
   };
   const pose = o.arms || (o.cane ? 'cane' : sit ? 'knees' : 'down');
-  const arms = [];
+  const arms = [], armRig = [];
   let ember = null;
   for (const sxn of [-1, 1]) {
     const side = sxn === 1 ? 'R' : 'L';
@@ -383,7 +385,7 @@ export function person(x, z, o = {}) {
     if (pose === 'flashlight' && side === 'R') {
       const fl = tube(0.018, 0.022, 0.2, mat(0x151515, { metal: 0.7, rough: 0.4 }), 0, -0.32, 0.06, elbow, 8); fl.rotation.x = 1.4;
     }
-    arms.push(shoulder);
+    arms.push(shoulder); armRig.push({ shoulder, elbow, side: sxn });
   }
   if (o.cane || pose === 'cane') {
     // straight to the ground from roughly where the right hand is
@@ -462,7 +464,9 @@ export function person(x, z, o = {}) {
   if (o.collide !== false && !lie) collider(x - 0.35, z - 0.35, x + 0.35, z + 0.35);
 
   // merge each rigid part into a few meshes (one per material)
+  // rig: keep every joint separate so it can be animated (costs a few more draw calls)
   const anchors = [g, spine, head];
+  if (o.rig) for (const j of [...legs.flatMap((l) => [l.hip, l.knee]), ...armRig.flatMap((a) => [a.shoulder, a.elbow])]) anchors.push(j);
   for (const a of anchors) bakeInto(a, anchors);
 
   // ---- idle animation: breathing, weight shift, looking at the player when close ----
@@ -492,7 +496,7 @@ export function person(x, z, o = {}) {
       if (ember) ember.material.color.setRGB(1, 0.3 + Math.max(0, Math.sin(t * 0.9)) * 0.35, 0.1);
     });
   }
-  outer.userData = { inner: g, head, torso: spine, spine };
+  outer.userData = { inner: g, head, torso: spine, spine, legs, arms: armRig };
   return outer;
 }
 
