@@ -183,7 +183,7 @@ function startCase(def) {
     pos: new THREE.Vector3(def.spawn.x, 0, def.spawn.z), yaw: def.spawn.yaw, pitch: 0, bob: 0, stepAcc: 0,
     ui: null, cut: null, flashOn: true, flashFlicker: 0, t: 0, zone: null, ambience: null, nearest: null, perf: { t: 0, n: 0, checks: 0 },
   };
-  B.init({ scene, colliders: G.colliders, lamps: G.lamps, lights: G.lights, anims: G.anims, cull: G.cull, cheap: settings.quality === 'low' });
+  B.init({ scene, colliders: G.colliders, lamps: G.lamps, lights: G.lights, anims: G.anims, cull: G.cull, camera, cheap: settings.quality === 'low' });
   G.rain = makeRain(Q().rain); scene.add(G.rain);
   def.build(api);
   B.staticBatch(scene);
@@ -721,15 +721,35 @@ function updateRain(dt) {
   a.needsUpdate = true;
 }
 
+// Flashlight "eye adaptation": measure how far away the thing in the middle of the beam is
+// (walls, trees, people via their collision boxes, or the ground) and scale the beam so whatever
+// you look at is lit about the same. Stops faces turning white up close without losing range.
+const _fd = new THREE.Vector3();
+function aimDistance() {
+  camera.getWorldDirection(_fd);
+  const ox = camera.position.x, oz = camera.position.z, h = Math.hypot(_fd.x, _fd.z);
+  let best = 30;
+  if (_fd.y < -0.01) best = Math.min(best, camera.position.y / -_fd.y);
+  if (h > 1e-4) {
+    const dx = _fd.x / h, dz = _fd.z / h, ix = 1 / (dx || 1e-9), iz = 1 / (dz || 1e-9);
+    for (const c of G.colliders) {
+      let t1 = (c.x0 - ox) * ix, t2 = (c.x1 - ox) * ix; let tmin = Math.min(t1, t2), tmax = Math.max(t1, t2);
+      t1 = (c.z0 - oz) * iz; t2 = (c.z1 - oz) * iz;
+      tmin = Math.max(tmin, Math.min(t1, t2)); tmax = Math.min(tmax, Math.max(t1, t2));
+      if (tmax >= Math.max(tmin, 0) && tmin < best * h) best = Math.min(best, Math.max(tmin, 0.3) / h);
+    }
+  }
+  return Math.max(0.6, best);
+}
 function updateFlash(dt) {
   if (!G.flashOn) { flash.intensity = 0; return; }
+  const target = Math.max(14, Math.min(170, 7.5 * Math.pow(aimDistance(), 1.3)));
+  G.flashBase = G.flashBase === undefined ? target : G.flashBase + (target - G.flashBase) * Math.min(1, dt * 5);
   G.flashFlicker -= dt;
-  if (G.flashFlicker < 0) {
-    if (Math.random() < 0.004) G.flashFlicker = 0.6 + Math.random() * 0.6; // brief failing battery moment
-    flash.intensity = 160;
-  } else {
-    flash.intensity = Math.random() < 0.4 ? 8 : 110;
-  }
+  let k = 1;
+  if (G.flashFlicker < 0) { if (Math.random() < 0.004) G.flashFlicker = 0.6 + Math.random() * 0.6; } // brief failing battery moment
+  else k = Math.random() < 0.4 ? 0.05 : 0.7;
+  flash.intensity = G.flashBase * k;
 }
 
 function updateAmbience() {

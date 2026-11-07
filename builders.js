@@ -229,50 +229,261 @@ export function forest(list) {
 }
 export function resetShared() { if (treeGeo) treeGeo.dispose(); if (treeMat) treeMat.dispose(); treeGeo = treeMat = null; }
 
-// Low-poly person. Faces +z before rotY. pose: stand | sit | lie (face down)
+// Human character. Faces +z before ry. Feet at y = 0, about 1.76 m tall at scale 1.
+// Options:
+//   pose: 'stand' | 'sit' | 'lie' (face down)      arms: 'down' | 'hug' | 'clasp' | 'pockets' | 'smoke' | 'knees' | 'fire' | 'cane' | 'flashlight'
+//   body: 'male' | 'female' | 'child'               build: 'normal' | 'heavy' | 'thin'      old: stoop + slower
+//   coat, pants, shirt, shoes, skin, hair (colours)  coatLen: 'short' | 'long' | 'none'      tie: colour
+//   hairStyle: 'short' | 'long' | 'bun' | 'pony' | 'bald' | 'messy'     beard: true | 'stubble'
+//   hat: 'fedora' | 'police' | 'beanie' + hatColor  glasses, glint (lenses catch light), collar (priest), badge, apron: colour
+//   ribbon: colour (hair ribbon), knife: true (in the back; used for the shed scene)
+//   look: false to stop the head turning toward the player
+const _m4 = new THREE.Matrix4();
+function cap(r, len, m, x, y, z, parent) {
+  const mesh = new THREE.Mesh(new THREE.CapsuleGeometry(r, len, 4, 10), m);
+  mesh.position.set(x, y, z); parent.add(mesh); return mesh;
+}
+function ball(r, m, x, y, z, parent, sx = 1, sy = 1, sz = 1, seg = 14) {
+  const mesh = new THREE.Mesh(new THREE.SphereGeometry(r, seg, Math.max(6, Math.round(seg * 0.75))), m);
+  mesh.position.set(x, y, z); mesh.scale.set(sx, sy, sz); parent.add(mesh); return mesh;
+}
+function cube(w, h, d, m, x, y, z, parent) {
+  const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m);
+  mesh.position.set(x, y, z); parent.add(mesh); return mesh;
+}
+function tube(rt, rb, h, m, x, y, z, parent, seg = 14, open = false) {
+  const mesh = new THREE.Mesh(new THREE.CylinderGeometry(rt, rb, h, seg, 1, open), m);
+  mesh.position.set(x, y, z); parent.add(mesh); return mesh;
+}
+// Merge every mesh under `anchor` (not crossing into other anchors) into one mesh per material.
+function bakeInto(anchor, anchors) {
+  anchor.updateMatrixWorld(true);
+  const inv = new THREE.Matrix4().copy(anchor.matrixWorld).invert();
+  const byMat = new Map(), victims = [];
+  const walk = (node) => {
+    for (const ch of [...node.children]) {
+      if (ch !== anchor && anchors.includes(ch)) continue;
+      if (ch.isMesh && !ch.visible) { victims.push(ch); continue; }
+      if (ch.isMesh && !ch.userData.keep) {
+        const g = (ch.geometry.index ? ch.geometry.toNonIndexed() : ch.geometry.clone());
+        for (const n of Object.keys(g.attributes)) if (!['position', 'normal', 'uv'].includes(n)) g.deleteAttribute(n);
+        g.applyMatrix4(_m4.multiplyMatrices(inv, ch.matrixWorld));
+        if (!byMat.has(ch.material)) byMat.set(ch.material, []);
+        byMat.get(ch.material).push(g); victims.push(ch);
+      }
+      walk(ch);
+    }
+  };
+  walk(anchor);
+  for (const v of victims) { v.parent.remove(v); v.geometry.dispose(); }
+  for (const [m, geos] of byMat) {
+    const merged = mergeGeometries(geos, false); geos.forEach((g) => g.dispose());
+    if (!merged) continue;
+    const mesh = new THREE.Mesh(merged, m); mesh.castShadow = true; mesh.receiveShadow = true;
+    anchor.add(mesh);
+  }
+}
+
 export function person(x, z, o = {}) {
   const outer = new THREE.Group(); outer.position.set(x, 0, z); outer.rotation.y = o.ry || 0;
   const g = new THREE.Group(); outer.add(g);
   const sc = o.scale || 1; g.scale.setScalar(sc);
-  const coat = mat(o.coat ?? 0x2a2a30), pants = mat(o.pants ?? 0x1a1a1e), skin = mat(o.skin ?? 0x8a6a58), hair = mat(o.hair ?? 0x1a1410);
-  const sit = o.pose === 'sit';
-  const legH = 0.85;
-  const mk = (w, h, d, m, px, py, pz, parent = g) => { const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); b.position.set(px, py, pz); shadowy(b); parent.add(b); return b; };
-  if (sit) {
-    mk(0.16, 0.16, 0.5, pants, -0.1, 0.5, 0.2); mk(0.16, 0.16, 0.5, pants, 0.1, 0.5, 0.2);
-    mk(0.15, 0.45, 0.15, pants, -0.1, 0.22, 0.42); mk(0.15, 0.45, 0.15, pants, 0.1, 0.22, 0.42);
-  } else {
-    mk(0.16, legH, 0.18, pants, -0.1, legH / 2, 0); mk(0.16, legH, 0.18, pants, 0.1, legH / 2, 0);
+  const female = o.body === 'female' || o.body === 'child-girl' || (o.longHair && o.body !== 'male');
+  const child = (o.scale || 1) < 0.85;
+  const W = o.build === 'heavy' ? 1.18 : o.build === 'thin' ? 0.9 : 1;
+  const coatLen = o.coatLen || (o.longCoat ? 'long' : 'short');
+
+  const M = {
+    coat: mat(o.coat ?? 0x2a2a30, { rough: 0.85 }), pants: mat(o.pants ?? 0x1a1a1e, { rough: 0.9 }),
+    skin: mat(o.skin ?? 0x8a6a58, { rough: 0.65 }), hair: mat(o.hair ?? 0x1a1410, { rough: 0.8 }),
+    shoe: mat(o.shoes ?? 0x0c0b0a, { rough: 0.45, metal: 0.2 }), shirt: mat(o.shirt ?? 0x8a8678, { rough: 0.9 }),
+    eye: mat(0x080808, { rough: 0.25 }), lip: mat(0x4a2a24, { rough: 0.7 }),
+  };
+  const sit = o.pose === 'sit', lie = o.pose === 'lie';
+  const H = sit ? (o.seatH ?? 0.56) : 0.9;
+
+  // ---- legs (each a hip group with a knee group, so poses can bend them) ----
+  for (const sx of [-1, 1]) {
+    const hipG = new THREE.Group(); hipG.position.set(sx * 0.095 * W, H, 0); g.add(hipG);
+    cap(0.078 * W, 0.3, M.pants, 0, -0.22, 0, hipG);
+    const knee = new THREE.Group(); knee.position.set(0, -0.44, 0); hipG.add(knee);
+    cap(0.062 * W, 0.3, M.pants, 0, -0.2, 0, knee);
+    cube(0.105, 0.085, 0.27, M.shoe, 0, -0.42, 0.045, knee);
+    if (sit) { hipG.rotation.x = -Math.PI / 2 + 0.08; knee.rotation.x = Math.PI / 2 - 0.08; hipG.rotation.y = sx * 0.08; }
   }
-  const hip = sit ? 0.5 : legH;
-  const torso = mk(0.46, 0.62, 0.26, coat, 0, hip + 0.31, 0);
-  if (o.longCoat) mk(0.5, 0.5, 0.3, coat, 0, hip - 0.15, 0);
-  const armL = mk(0.13, 0.6, 0.15, coat, -0.3, hip + 0.3, sit ? 0.12 : 0);
-  const armR = mk(0.13, 0.6, 0.15, coat, 0.3, hip + 0.3, sit ? 0.12 : 0);
-  if (sit) { armL.rotation.x = armR.rotation.x = -0.6; }
-  const head = new THREE.Mesh(new THREE.SphereGeometry(0.15, 10, 8), skin); head.position.set(0, hip + 0.8, 0); shadowy(head); g.add(head);
-  mk(0.32, 0.12, 0.32, hair, 0, hip + 0.91, -0.02);
-  if (o.longHair) mk(0.3, 0.32, 0.1, hair, 0, hip + 0.7, -0.13);
-  if (o.hat) { mk(0.44, 0.03, 0.44, mat(o.hat), 0, hip + 0.93, 0); mk(0.28, 0.16, 0.28, mat(o.hat), 0, hip + 1.01, 0); }
-  if (o.cap) { mk(0.3, 0.1, 0.3, mat(o.cap), 0, hip + 0.95, 0); mk(0.26, 0.03, 0.16, mat(o.cap), 0, hip + 0.91, 0.17); }
-  if (o.glasses) mk(0.26, 0.04, 0.02, mat(0x0a0a0a, { metal: 0.8 }), 0, hip + 0.82, 0.15);
-  if (o.collar) mk(0.14, 0.08, 0.02, mat(0xdddddd), 0, hip + 0.6, 0.135);
-  if (o.cane) { const c = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.95, 6), mat(0x120c08)); c.position.set(0.38, 0.47, 0.12); g.add(c); }
-  if (o.pose === 'lie') { g.rotation.x = Math.PI / 2; g.position.y = 0.14 * sc; g.position.z = -0.9 * sc; }
+  // pelvis
+  ball(0.17, M.pants, 0, H + 0.03, 0, g, ((female ? 0.135 : 0.15) / 0.17) * W, 0.55, 0.58);
+
+  // ---- spine: torso, arms, head ----
+  const spine = new THREE.Group(); spine.position.set(0, H + 0.02, 0); g.add(spine);
+  if (o.old) spine.rotation.x = 0.14;
+  const sh = female ? 0.18 : 0.2, wa = female ? 0.13 : 0.155;
+  const prof = [[wa, 0], [wa + 0.005, 0.08], [wa + 0.02, 0.2], [sh - 0.005, 0.33], [sh, 0.43], [sh - 0.02, 0.5], [0.12, 0.555], [0.055, 0.575], [0.001, 0.578]]
+    .map(([r, y]) => new THREE.Vector2(r * W, y));
+  const torso = new THREE.Mesh(new THREE.LatheGeometry(prof, 16), M.coat); torso.scale.z = 0.62; spine.add(torso);
+  if (female) { ball(0.07, M.coat, -0.065, 0.36, 0.075 * W, spine, 1, 0.85, 0.8); ball(0.07, M.coat, 0.065, 0.36, 0.075 * W, spine, 1, 0.85, 0.8); }
+  // shirt V, tie, collar
+  if (coatLen !== 'none') {
+    const v = new THREE.Mesh(new THREE.ConeGeometry(0.055, 0.17, 3), M.shirt); v.rotation.x = Math.PI; v.scale.z = 0.25; v.position.set(0, 0.47, 0.112 * W); spine.add(v);
+    if (o.tie) { const t = cube(0.03, 0.15, 0.01, mat(o.tie, { rough: 0.6 }), 0, 0.43, 0.118 * W, spine); t.rotation.x = -0.12; }
+    // lapels
+    for (const s of [-1, 1]) { const l = cube(0.05, 0.2, 0.012, M.coat, s * 0.06, 0.44, 0.112 * W, spine); l.rotation.z = s * 0.35; l.rotation.y = s * -0.25; }
+    // coat skirt
+    if (coatLen === 'long' || coatLen === 'short') {
+      const len = coatLen === 'long' ? 0.62 : 0.24;
+      const skirt = tube(wa * W + 0.012, wa * W + (coatLen === 'long' ? 0.075 : 0.035), len, mat(o.coat ?? 0x2a2a30, { rough: 0.85, double: true }), 0, 0.02 - len / 2, 0, spine, 16, true);
+      skirt.scale.z = 0.7;
+      // buttons
+      for (let i = 0; i < 3; i++) ball(0.009, M.shoe, 0.012, 0.3 - i * 0.09, 0.105 * W, spine, 1, 1, 0.5, 6);
+    }
+  }
+  if (o.apron) { const ap = cube(0.26 * W, 0.5, 0.01, mat(o.apron, { rough: 0.9 }), 0, 0.12, 0.112 * W, spine); ap.rotation.x = -0.05; }
+  if (o.badge) { const bm = mat(0x000000, { emissive: 0x8a6a20, ei: 0.6, metal: 0.8, rough: 0.3 }); bm.color.setHex(0xb8962e); cube(0.035, 0.045, 0.01, bm, -0.08, 0.41, 0.118 * W, spine); }
+  if (o.knife) {
+    cube(0.034, 0.034, 0.2, mat(0x0e0a08, { rough: 0.6 }), 0.05, 0.22, -0.2, spine);
+    cube(0.11, 0.025, 0.025, mat(0x666666, { metal: 0.9, rough: 0.3 }), 0.05, 0.22, -0.11, spine);
+  }
+  // neck
+  tube(0.045, 0.052, 0.1, M.skin, 0, 0.6, 0.005, spine, 10);
+  if (o.collar) { tube(0.06, 0.066, 0.045, mat(0x111111), 0, 0.575, 0, spine, 12); cube(0.03, 0.025, 0.01, mat(0xe8e4dc, { rough: 0.6 }), 0, 0.578, 0.064, spine); }
+  else if (coatLen !== 'none') { const col = tube(0.075, 0.1, 0.08, mat(o.coat ?? 0x2a2a30, { rough: 0.85, double: true }), 0, 0.575, -0.01, spine, 14, true); col.scale.z = 0.85; }
+  if (o.scarf) { const sm = mat(o.scarf, { rough: 0.95 }); const sf = new THREE.Mesh(new THREE.TorusGeometry(0.065, 0.03, 8, 16), sm); sf.rotation.x = Math.PI / 2; sf.position.set(0, 0.585, 0.005); spine.add(sf); cube(0.06, 0.2, 0.025, sm, 0.04, 0.47, 0.11, spine); }
+
+  // ---- arms: shoulder group -> elbow group -> hand ----
+  const ARM = {
+    down: [[0.05, 0, 0.09], [-0.18, 0]], hug: [[-0.3, 0, -0.28], [-1.75, 0.95]], clasp: [[-0.22, 0, -0.12], [-1.05, 0.55]],
+    pockets: [[0.12, 0, 0.14], [-0.35, 0]], knees: [[-0.45, 0, 0.06], [-0.75, 0]], fire: [[-1.0, 0, -0.04], [-0.55, 0.25]],
+    flashlight: [[-0.1, 0, 0.08], [-0.5, 0]], cane: [[-0.12, 0, 0.12], [-0.3, 0]],
+  };
+  const pose = o.arms || (o.cane ? 'cane' : sit ? 'knees' : 'down');
+  const arms = [];
+  let ember = null;
+  for (const sxn of [-1, 1]) {
+    const side = sxn === 1 ? 'R' : 'L';
+    let p = ARM[pose] || ARM.down;
+    if (pose === 'smoke') p = side === 'R' ? [[-0.35, 0, 0.18], [-2.25, -0.25]] : [[-0.2, 0, -0.2], [-1.35, 0.85]];
+    if ((pose === 'cane' || pose === 'flashlight') && side === 'L') p = ARM.down;
+    const shoulder = new THREE.Group(); shoulder.position.set(sxn * (sh * W + 0.035), 0.5, 0); spine.add(shoulder);
+    // z param: positive = arm swings outward, negative = across the body
+    shoulder.rotation.set(p[0][0], 0, sxn * p[0][2]);
+    ball(0.05 * W, M.coat, -sxn * 0.01, 0.0, 0, shoulder, 1.1, 0.9, 0.95);
+    const ua = cap(0.046 * W, 0.24, M.coat, 0, -0.15, 0, shoulder); ua.scale.z = 0.92;
+    const elbow = new THREE.Group(); elbow.rotation.order = 'YXZ'; elbow.position.set(0, -0.29, 0); shoulder.add(elbow);
+    elbow.rotation.x = p[1][0]; elbow.rotation.y = -sxn * p[1][1];
+    const fa = cap(0.04 * W, 0.2, M.coat, 0, -0.13, 0, elbow); fa.scale.z = 0.9;
+    tube(0.044 * W, 0.047 * W, 0.035, M.coat, 0, -0.245, 0, elbow, 10); // cuff
+    const hand = ball(0.044, M.skin, 0, -0.305, 0.005, elbow, 0.78, 1.2, 0.5, 10);
+    const thumb = cap(0.014, 0.03, M.skin, -sxn * 0.03, -0.29, 0.018, elbow); thumb.rotation.z = -sxn * 0.5;
+    if (pose === 'pockets') { hand.visible = false; thumb.visible = false; }
+    if (pose === 'smoke' && side === 'R') {
+      const cig = tube(0.005, 0.005, 0.07, mat(0xdedad0), 0, -0.33, 0.03, elbow, 6); cig.rotation.x = 1.2;
+      const em = new THREE.MeshBasicMaterial({ color: 0xff5a1a });
+      ember = new THREE.Mesh(new THREE.SphereGeometry(0.008, 6, 4), em); ember.position.set(0, -0.345, 0.065); ember.userData.keep = true; elbow.add(ember);
+    }
+    if (pose === 'flashlight' && side === 'R') {
+      const fl = tube(0.018, 0.022, 0.2, mat(0x151515, { metal: 0.7, rough: 0.4 }), 0, -0.32, 0.06, elbow, 8); fl.rotation.x = 1.4;
+    }
+    arms.push(shoulder);
+  }
+  if (o.cane || pose === 'cane') {
+    // straight to the ground from roughly where the right hand is
+    tube(0.012, 0.012, 0.86, mat(0x120c08, { rough: 0.5 }), 0.29 * W, 0.43, 0.1, g, 6);
+    tube(0.018, 0.018, 0.07, mat(0x120c08, { rough: 0.5 }), 0.29 * W, 0.86, 0.12, g, 6).rotation.x = Math.PI / 2;
+  }
+
+  // ---- head ----
+  const head = new THREE.Group(); head.position.set(0, 0.64, 0.01); spine.add(head);
+  if (child) head.scale.setScalar(1.14);
+  if (o.old) head.rotation.x = -0.12;
+  ball(0.104, M.skin, 0, 0.085, 0, head, 1, 1.17, 1.06, 18);               // cranium
+  ball(0.078, M.skin, 0, 0.025, 0.022, head, female ? 0.95 : 1.05, 0.85, 1); // jaw
+  const nose = new THREE.Mesh(new THREE.ConeGeometry(0.017, 0.045, 4), M.skin); nose.rotation.x = Math.PI / 2 + 0.25; nose.position.set(0, 0.075, 0.112); head.add(nose);
+  for (const s of [-1, 1]) {
+    ball(0.013, M.eye, s * 0.036, 0.098, 0.096, head, 1.2, 0.8, 0.6, 8);
+    const brow = cube(0.04, 0.009, 0.012, M.hair, s * 0.037, 0.122, 0.098, head); brow.rotation.z = s * -0.12;
+    ball(0.024, M.skin, s * 0.104, 0.085, -0.005, head, 0.45, 1, 0.75, 8); // ear
+  }
+  cube(0.036, 0.006, 0.01, M.lip, 0, 0.032, 0.098, head); // mouth
+  if (o.beard) {
+    const bm = o.beard === 'stubble' ? mat(o.hair ?? 0x1a1410, { rough: 1, opacity: 0.55 }) : M.hair;
+    ball(0.082, bm, 0, 0.018, 0.03, head, 1.05, o.beard === 'stubble' ? 0.85 : 1.05, 1.0);
+  }
+  // hair
+  const hs = o.hairStyle || (o.longHair ? 'long' : 'short');
+  if (hs !== 'bald') {
+    const capG = new THREE.SphereGeometry(0.112, 18, 10, 0, Math.PI * 2, 0, Math.PI * (hs === 'messy' ? 0.55 : 0.47));
+    const hc = new THREE.Mesh(capG, M.hair); hc.scale.set(1.03, 1.12, 1.1); hc.position.set(0, 0.098, -0.012); hc.rotation.x = -0.5; head.add(hc);
+    if (hs === 'long') { const back = cap(0.1, 0.18, M.hair, 0, -0.03, -0.055, head); back.scale.set(1.05, 1, 0.55); for (const s of [-1, 1]) { const side = cap(0.035, 0.16, M.hair, s * 0.095, 0.0, 0.0, head); side.scale.z = 0.8; } }
+    if (hs === 'bun') ball(0.048, M.hair, 0, 0.15, -0.11, head);
+    if (hs === 'pony') { ball(0.03, M.hair, 0, 0.11, -0.12, head); const pt = cap(0.032, 0.16, M.hair, 0, -0.0, -0.145, head); pt.rotation.x = 0.25; }
+    if (hs === 'messy') for (let i = 0; i < 6; i++) { const a = i * 1.05; ball(0.03, M.hair, Math.sin(a) * 0.08, 0.17 + (i % 2) * 0.015, Math.cos(a) * 0.07 - 0.02, head, 1, 0.7, 1, 8); }
+  } else {
+    for (const s of [-1, 1]) ball(0.05, M.hair, s * 0.085, 0.085, -0.035, head, 0.5, 0.8, 1.1, 10); // fringe around the ears
+  }
+  if (o.ribbon) { const rm = mat(o.ribbon, { emissive: 0x220000, rough: 0.6 }); cube(0.1, 0.035, 0.03, rm, 0, 0.12, -0.12, head); }
+  // hats
+  const hat = o.hat === true ? 'fedora' : typeof o.hat === 'number' ? 'fedora' : o.hat;
+  const hatColor = o.hatColor ?? (typeof o.hat === 'number' ? o.hat : typeof o.cap === 'number' ? o.cap : 0x151515);
+  const HM = mat(hatColor, { rough: 0.8 });
+  if (hat === 'fedora') {
+    tube(0.2, 0.2, 0.014, HM, 0, 0.178, 0, head, 22);
+    const crown = tube(0.098, 0.116, 0.11, HM, 0, 0.235, 0, head, 18); crown.scale.z = 1.1;
+    tube(0.118, 0.118, 0.025, mat(0x060606), 0, 0.195, 0, head, 18).scale.z = 1.1;
+  } else if (hat === 'police' || o.cap) {
+    tube(0.122, 0.114, 0.075, HM, 0, 0.205, 0, head, 18);
+    tube(0.138, 0.124, 0.03, HM, 0, 0.255, 0.005, head, 18);
+    const visor = cube(0.17, 0.012, 0.085, mat(0x050505, { rough: 0.3, metal: 0.3 }), 0, 0.178, 0.105, head); visor.rotation.x = 0.28;
+    const bm = mat(0x000000, { emissive: 0x8a6a20, ei: 0.6 }); bm.color.setHex(0xb8962e); cube(0.03, 0.03, 0.01, bm, 0, 0.21, 0.122, head);
+  } else if (hat === 'beanie') {
+    const b = new THREE.Mesh(new THREE.SphereGeometry(0.12, 16, 10, 0, Math.PI * 2, 0, Math.PI * 0.55), HM); b.scale.set(1, 1.2, 1.08); b.position.set(0, 0.105, 0); head.add(b);
+    tube(0.123, 0.123, 0.04, HM, 0, 0.13, 0, head, 16).scale.z = 1.08;
+  }
+  if (o.glasses) {
+    const gm = mat(0x0a0a0a, { metal: 0.8, rough: 0.3 });
+    for (const s of [-1, 1]) { const r = new THREE.Mesh(new THREE.TorusGeometry(0.019, 0.0022, 6, 14), gm); r.position.set(s * 0.037, 0.098, 0.11); head.add(r); }
+    cube(0.025, 0.004, 0.004, gm, 0, 0.1, 0.112, head);
+    if (o.glint) { const lm = new THREE.MeshBasicMaterial({ color: 0xcfe0ff }); for (const s of [-1, 1]) { const l = new THREE.Mesh(new THREE.CircleGeometry(0.017, 10), lm); l.position.set(s * 0.037, 0.098, 0.112); l.userData.keep = true; head.add(l); } }
+  }
+
+  if (lie) { g.rotation.x = Math.PI / 2; g.position.y = 0.13 * sc; g.position.z = -0.92 * sc; }
   C.scene.add(outer);
-  if (o.collide !== false && o.pose !== 'lie') collider(x - 0.35, z - 0.35, x + 0.35, z + 0.35);
-  // idle breathing / head turns
-  if (o.pose !== 'lie' && o.idle !== false) {
-    let t = Math.random() * 10;
+  if (o.collide !== false && !lie) collider(x - 0.35, z - 0.35, x + 0.35, z + 0.35);
+
+  // merge each rigid part into a few meshes (one per material)
+  const anchors = [g, spine, head];
+  for (const a of anchors) bakeInto(a, anchors);
+
+  // ---- idle animation: breathing, weight shift, looking at the player when close ----
+  if (!lie && o.idle !== false) {
+    let t = Math.random() * 10, hy = 0, hp = 0;
+    const speed = o.old ? 0.7 : 1;
+    const baseSpineX = spine.rotation.x, baseHeadX = head.rotation.x;
+    const wp = new THREE.Vector3();
     C.anims.push((dt) => {
-      t += dt;
-      torso.scale.y = 1 + Math.sin(t * 1.6) * 0.015;
-      head.rotation.y = Math.sin(t * 0.4) * 0.35 + Math.sin(t * 1.3) * 0.05;
+      t += dt * speed;
+      spine.scale.set(1 + Math.sin(t * 1.7) * 0.008, 1 + Math.sin(t * 1.7) * 0.012, 1 + Math.sin(t * 1.7) * 0.012);
+      if (!sit) { spine.rotation.z = Math.sin(t * 0.35) * 0.025; g.position.x = Math.sin(t * 0.35) * 0.012; }
+      spine.rotation.x = baseSpineX + Math.sin(t * 1.7) * 0.01;
+      let ty = Math.sin(t * 0.31) * 0.45 + Math.sin(t * 0.97) * 0.08, tp = Math.sin(t * 0.23) * 0.06;
+      if (o.look !== false && C.camera) {
+        head.getWorldPosition(wp);
+        const dx = C.camera.position.x - wp.x, dz = C.camera.position.z - wp.z, d = Math.hypot(dx, dz);
+        if (d < 7) {
+          let a = Math.atan2(dx, dz) - outer.rotation.y - spine.rotation.y;
+          a = Math.atan2(Math.sin(a), Math.cos(a));
+          if (Math.abs(a) < 1.6) { ty = Math.max(-1.1, Math.min(1.1, a)); tp = -Math.atan2(C.camera.position.y - wp.y - 0.1, d) * 0.6; }
+        }
+      }
+      const k = Math.min(1, dt * 3);
+      hy += (ty - hy) * k; hp += (tp - hp) * k;
+      head.rotation.y = hy; head.rotation.x = baseHeadX + hp;
+      if (ember) ember.material.color.setRGB(1, 0.3 + Math.max(0, Math.sin(t * 0.9)) * 0.35, 0.1);
     });
   }
-  outer.userData = { inner: g, head, torso, hip };
+  outer.userData = { inner: g, head, torso: spine, spine };
   return outer;
 }
+
 export const faceTo = (fx, fz, tx, tz) => Math.atan2(tx - fx, tz - fz);
 
 export function car(x, z, o = {}) {

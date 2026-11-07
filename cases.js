@@ -67,7 +67,7 @@ const CMARY = {
     if (!h('backpack') || !h('print')) return 'Search the playground where Lily was last seen. Dust the gate.';
     if (!h('van')) return 'Someone was watching the playground this afternoon. Try the bus stop.';
     if (!h('jacket')) return 'Ask at the corner shop. It was open all day.';
-    if (!h('body')) return h('ribbon') ? 'Follow where the ribbon points.' : 'Follow the old logging road into the woods.';
+    if (!h('body')) return h('ribbon') ? 'Follow the trampled path west, toward the glow between the trees.' : h('tracks') ? 'The tracks stop near a trampled path on the left (west) side of the road. Follow it.' : 'Follow the old logging road into the woods.';
     return 'Return to your car. Use the case board to name who did this.';
   },
   endings: {
@@ -167,12 +167,16 @@ const CMARY = {
 
     // woods (avoid track + shed clearing + ribbon tree)
     const trees = [];
+    // keep a clear corridor along the footpath to the shed
+    const PATH = [[-1.8, -49.2], [-6, -51.4], [-7.4, -56.4], [-8.2, -60.2], [-8.1, -61.8]];
+    const nearPath = (x, z) => PATH.some((p, i) => { if (!i) return false; const [ax, az] = PATH[i - 1], [bx, bz] = p; const dx = bx - ax, dz = bz - az; const t = Math.max(0, Math.min(1, ((x - ax) * dx + (z - az) * dz) / (dx * dx + dz * dz))); return Math.hypot(x - ax - dx * t, z - az - dz * t) < 2.5; });
     for (let i = 0; i < 260; i++) {
       const x = -27 + r() * 54, z = -34 - r() * 42;
       if (Math.abs(x) < 3.4) continue;
       if (Math.hypot(x + 11, z + 62) < 5.5) continue;
       if (Math.hypot(x + 6, z + 51) < 1.6) continue;
       if (Math.hypot(x + 7.5, z + 56.5) < 2.2) continue;
+      if (nearPath(x, z)) continue;
       if (x > -9.5 && x < -3 && z > -64.5 && z < -58.5) continue;
       if (x > -7.5 && x < -3 && z > -53 && z < -48) continue;
       trees.push({ x, z, s: 0.8 + r() * 0.7 });
@@ -202,20 +206,51 @@ const CMARY = {
     B.box(0.08, 2.0, 1.4, 0x22180f, 0, 0, -0.7, { parent: door });
     B.box(0.05, 0.25, 0.1, 0x777777, 0.05, 1.0, -1.25, { parent: door, metal: 0.9 });
     // inside: Lily
-    const lily = B.person(sx - 0.4, sz, { scale: 0.72, ry: -Math.PI / 2, pose: 'lie', coat: 0x8f7a26, pants: 0x262a3a, hair: 0x3a2414, longHair: true, skin: 0x8f7766 });
-    const inner = lily.userData.inner;
-    B.box(0.05, 0.05, 0.24, 0x0e0a08, 0.06, 1.12, -0.25, { parent: inner });
-    B.box(0.14, 0.03, 0.03, 0x666666, 0.06, 1.12, -0.17, { parent: inner, metal: 0.9, rough: 0.3 });
-    B.box(0.12, 0.02, 0.05, 0x8a0f12, 0.04, 1.78, -0.12, { parent: inner }); // ribbon on hair
+    B.person(sx - 0.4, sz, { scale: 0.72, ry: -Math.PI / 2, pose: 'lie', body: 'female', coat: 0x8f7a26, coatLen: 'long', shirt: 0x6a5a20, pants: 0x262a3a, shoes: 0x3a2a4a, hair: 0x3a2414, hairStyle: 'pony', ribbon: 0x8a0f12, skin: 0x9a7a68, knife: true });
     B.box(1.2, 0.5, 0.5, 0x1a1410, sx - 1.3, 0, sz - 1.4); // woodpile
+    // A battery lantern left on inside. Its glow leaks through the plank gaps and onto the
+    // ground outside, so the shed can be found from the logging road.
+    const lantern = B.box(0.16, 0.26, 0.16, 0x2a2a2a, sx - 1.5, 0, sz + 1.2, { metal: 0.6 });
+    const glowMat = new THREE.MeshBasicMaterial({ color: 0xffb060 });
+    const bulb = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.13, 0.12), glowMat); bulb.position.set(sx - 1.5, 0.15, sz + 1.2); bulb.userData.dynamic = true; api.scene.add(bulb);
+    const shedLight = B.light(sx - 0.6, 1.4, sz + 0.6, 0xffa050, 14, 15);
+    const leak = new THREE.MeshBasicMaterial({ color: 0xffa860, transparent: true, opacity: 0.85 });
+    const gaps = [[sx + W / 2 + 0.065, 1.2, sz - 0.72, 0.03, 2.0, Math.PI / 2], [sx + W / 2 + 0.065, 1.2, sz + 0.72, 0.03, 2.0, Math.PI / 2],
+      [sx + W / 2 + 0.065, 1.3, sz - 1.4, 0.02, 1.6, Math.PI / 2], [sx + W / 2 + 0.065, 1.1, sz + 1.5, 0.02, 1.4, Math.PI / 2],
+      [sx + 0.6, 1.2, sz + D / 2 + 0.065, 0.025, 1.8, 0], [sx - 0.7, 1.0, sz + D / 2 + 0.065, 0.02, 1.4, 0], [sx + 0.2, 2.05, sz + D / 2 + 0.065, 2.6, 0.03, 0]];
+    for (const [gx, gy, gz, gw, gh, gry] of gaps) { const m = new THREE.Mesh(new THREE.PlaneGeometry(gw, gh), leak); m.position.set(gx, gy, gz); m.rotation.y = gry; m.userData.dynamic = true; api.scene.add(m); }
+    let lt = 0; api.anims.push((dt) => { lt += dt; const k = 0.8 + Math.sin(lt * 9) * 0.05 + (Math.random() < 0.03 ? -0.4 : 0); shedLight.cur = 14 * k; leak.opacity = 0.85 * k; glowMat.color.setRGB(1, 0.69 * k, 0.38 * k); });
+    // trampled footpath from the logging road, past the ribbon, to the shed door
+    const pathMat = B.mat(0x2a2016, { rough: 1 });
+    const pathPts = [[-1.8, -49.2], [-6, -51.4], [-7.4, -56.4], [-8.2, -60.2], [sx + W / 2 + 0.9, sz + 0.2]];
+    for (let i = 1; i < pathPts.length; i++) {
+      const [ax, az] = pathPts[i - 1], [bx, bz] = pathPts[i], len = Math.hypot(bx - ax, bz - az);
+      const seg = new THREE.Mesh(new THREE.PlaneGeometry(1.1, len + 0.6), pathMat);
+      seg.rotation.order = 'YXZ'; seg.rotation.set(-Math.PI / 2, Math.atan2(bx - ax, bz - az), 0);
+      seg.position.set((ax + bx) / 2, 0.03 + i * 0.001, (az + bz) / 2); seg.receiveShadow = true; api.scene.add(seg);
+      // boot prints along it
+      const n = Math.floor(len / 0.7);
+      for (let k = 0; k < n; k++) {
+        const t = (k + 0.5) / n, px = ax + (bx - ax) * t, pz = az + (bz - az) * t, side = k % 2 ? 0.14 : -0.14;
+        const ang = Math.atan2(bx - ax, bz - az), ox = Math.cos(ang) * side, oz = -Math.sin(ang) * side;
+        const fp = new THREE.Mesh(new THREE.PlaneGeometry(0.11, 0.28), B.mat(0x120d08, { rough: 1 }));
+        fp.rotation.order = 'YXZ'; fp.rotation.set(-Math.PI / 2, ang, 0); fp.position.set(px + ox, 0.04, pz + oz); api.scene.add(fp);
+      }
+    }
+    // a broken-branch marker where the path leaves the road
+    const br = B.box(0.05, 0.05, 0.9, 0x3a2a18, -2.6, 0.5, -49.4); br.rotation.set(0.4, 0.9, 0.2);
 
     // police car + officer
     B.car(-1.6, 25, { police: true, ry: 0 });
     B.car(-3.0, 9, { color: 0x1e2a3a, ry: Math.PI });
-    const reyes = B.person(-3.6, 21.6, { coat: 0x15192a, pants: 0x101320, cap: 0x101320, skin: 0x7a5844, ry: B.faceTo(-3.6, 21.6, 1, 22) });
-    const mom = B.person(rowe.doorPos.x - 0.6, rowe.doorPos.z, { coat: 0x3a2e2a, pants: 0x202024, hair: 0x2a1c14, longHair: true, skin: 0x9a7a66, ry: Math.PI / 2 });
-    const walter = B.person(7.2, -3.6, { pose: 'sit', coat: 0x2e2a22, pants: 0x1c1a18, hat: 0x1b1a18, skin: 0x8a6c5a, ry: -Math.PI / 2 });
-    const denise = B.person(8.0, -14.2, { coat: 0x2a1818, pants: 0x18181c, hair: 0x5a3a20, longHair: true, skin: 0x9a7a66, ry: -Math.PI / 2 });
+    // Officer Dana Reyes: uniform, cap, badge, flashlight in hand
+    const reyes = B.person(-3.6, 21.6, { body: 'female', coat: 0x161b2c, shirt: 0x1e2436, pants: 0x101320, hat: 'police', hatColor: 0x101320, badge: true, hair: 0x140e0a, hairStyle: 'bun', skin: 0x7a5844, arms: 'flashlight', ry: B.faceTo(-3.6, 21.6, 1, 22) });
+    // Margaret Rowe: cardigan over a nightshirt, arms wrapped around herself
+    const mom = B.person(rowe.doorPos.x - 0.6, rowe.doorPos.z, { body: 'female', coat: 0x4a3c34, coatLen: 'long', shirt: 0x8c8478, pants: 0x24242a, hair: 0x2a1c14, hairStyle: 'long', skin: 0x9a7a66, arms: 'hug', scarf: 0x3a2a2a, ry: Math.PI / 2 });
+    // Walter Pike: old man on the bus-stop bench, fedora, overcoat, hands on his knees
+    const walter = B.person(7.2, -3.6, { pose: 'sit', seatH: 0.6, old: true, coat: 0x3a3428, coatLen: 'long', shirt: 0x7a7468, tie: 0x2a1a14, pants: 0x24221e, hat: 'fedora', hatColor: 0x1e1c18, hair: 0x9a9690, hairStyle: 'bald', beard: 'stubble', skin: 0x8a6c5a, ry: -Math.PI / 2 });
+    // Denise: grocery clerk on a smoke break, apron, ponytail
+    const denise = B.person(8.0, -14.2, { body: 'female', coat: 0x2a1818, coatLen: 'none', shirt: 0x2a1818, apron: 0x3a4a3c, pants: 0x18181c, hair: 0x5a3a20, hairStyle: 'pony', skin: 0x9a7a66, arms: 'smoke', ry: -Math.PI / 2 });
 
     // ---------- interactions ----------
     api.interact({ pos: [-3.6, 1.5, 21.6], label: 'Talk to Officer Reyes', use: () => api.talk(W_REYES) });
@@ -227,7 +262,7 @@ const CMARY = {
     api.interact({ pos: [-19.2, 0.3, -21], glint: true, label: 'Examine backpack', cond: () => !api.has('backpack'), use: () => { api.sound.page(); api.inspect({ title: "Lily's backpack", text: ['Purple canvas, half pushed under the slide. The search team walked right past it in the dark.', 'The zipper is torn open. The cat keychain Margaret mentioned is gone. Only the snapped ring is left.', 'Inside: a lunchbox, untouched. A spelling worksheet. LILY R. in careful pencil.'], onClose: () => api.give('backpack') }); } });
     api.interact({ pos: [-7, 1.0, -19.6], radius: 2, glint: true, label: 'Examine gate latch', cond: () => !api.has('print'), use: () => api.inspect({ title: 'Playground gate', text: ['The gate is hanging open. Lily always closed it behind her.', 'Under the latch cover the metal is dry. Smooth, cold, a perfect surface.'], actions: [{ label: 'Dust for prints', fn: () => api.print({ seed: 41, surface: 'painted steel' }, () => api.give('print')) }] }) });
     api.interact({ pos: [0, 0.3, -44], radius: 2.6, glint: true, label: 'Examine tire tracks', cond: () => !api.has('tracks'), use: () => api.inspect({ title: 'Tire tracks', text: ['Two lines pressed deep into the mud of the old logging road. Wide wheelbase. Van, not a car.', 'They are fresh. The rain has not softened the edges yet.', 'They go deeper into the woods. They do not come back the same way.'], onClose: () => api.give('tracks') }) });
-    api.interact({ pos: [-6.2, 1.3, -50.7], radius: 2.2, glint: true, label: 'Examine something red', cond: () => !api.has('ribbon'), use: () => { rib.visible = false; api.inspect({ title: 'A red ribbon', text: ['Snagged on a branch about a meter off the ground.', api.has('mom_ribbon') ? "Tied crooked. Margaret said she ties it herself. It's always crooked." : 'Tied crooked, by small hands.', 'Beyond it, between the trees, a dark shape. A shed.'], onClose: () => api.give('ribbon') }); } });
+    api.interact({ pos: [-6.2, 1.3, -50.7], radius: 2.2, glint: true, label: 'Examine something red', cond: () => !api.has('ribbon'), use: () => { rib.visible = false; api.inspect({ title: 'A red ribbon', text: ['Snagged on a branch about a meter off the ground.', api.has('mom_ribbon') ? "Tied crooked. Margaret said she ties it herself. It's always crooked." : 'Tied crooked, by small hands.', 'Beyond it, a trampled path runs deeper into the trees, toward a dim orange glow. A shed.'], onClose: () => api.give('ribbon') }); } });
     api.interact({
       pos: [sx + W / 2 + 0.4, 1.2, sz], radius: 2.6, label: 'Open the shed door', cond: () => !api.has('body'),
       use: () => {
@@ -485,15 +520,20 @@ const WING = {
     B.car(3.4, -36, { color: 0x2a1c18, ry: 0 });
     const ivDecal = B.decal((g, w, h) => { g.strokeStyle = 'rgba(220,220,220,0.95)'; g.lineWidth = 6; g.beginPath(); g.moveTo(w * 0.2, h * 0.15); g.lineTo(w * 0.2, h * 0.85); g.moveTo(w * 0.42, h * 0.15); g.lineTo(w * 0.6, h * 0.85); g.lineTo(w * 0.8, h * 0.15); g.stroke(); }, 0.6, 0.4, 2.2 - 0.97, 0.75, 23.4, { ry: -Math.PI / 2, res: 128 });
     ivDecal.visible = false; ivDecal.userData.dynamic = true;
-    B.person(4.6, 21.5, { coat: 0x15192a, pants: 0x101320, cap: 0x101320, skin: 0x6a4a3a, ry: -Math.PI / 2 });
-    B.person(4.8, 16.5, { coat: 0x2a1a18, pants: 0x18181c, hair: 0x6a2a1a, longHair: true, skin: 0x9a7a66, ry: -Math.PI / 2 });
-    B.person(4.8, 6.4, { coat: 0x2a2a26, pants: 0x1a1a1a, hair: 0x9a9a9a, glasses: true, skin: 0x9a8070, ry: -Math.PI / 2 });
-    B.person(34.2, -25.3, { pose: 'sit', coat: 0x262418, pants: 0x1c1a14, hat: 0x1a1a16, skin: 0x6a5040, ry: B.faceTo(34.2, -25.3, 35.4, -24.5) });
-    B.person(-3.2, -63.6, { coat: 0x0c0c0e, pants: 0x0c0c0e, hair: 0x8a8a8a, collar: true, skin: 0x9a8070, ry: 0 });
-    const stranger = B.person(-3.4, -40.9, { coat: 0x2a2a32, pants: 0x18181c, longCoat: true, hat: 0x050505, cane: true, glasses: true, skin: 0x5a4a40, ry: Math.PI / 2, scale: 1.08, idle: false, collide: false });
+    // Sergeant Holt: heavy-set, uniform, cap, flashlight
+    B.person(4.6, 21.5, { build: 'heavy', coat: 0x161b2c, shirt: 0x1e2436, tie: 0x0a0c14, pants: 0x101320, hat: 'police', hatColor: 0x101320, badge: true, hair: 0x2a2018, beard: 'stubble', skin: 0x6a4a3a, arms: 'flashlight', ry: -Math.PI / 2 });
+    // Mae: bartender, apron over a dark blouse, red hair up
+    B.person(4.8, 16.5, { body: 'female', coat: 0x241414, coatLen: 'none', shirt: 0x241414, apron: 0x2a2620, pants: 0x18181c, hair: 0x7a2a16, hairStyle: 'bun', skin: 0x9a7a66, arms: 'hug', ry: -Math.PI / 2 });
+    // Abel Finch: thin old watchmaker in a waistcoat, glasses, hands in pockets
+    B.person(4.8, 6.4, { build: 'thin', old: true, coat: 0x2e2a22, coatLen: 'none', shirt: 0x8a8476, tie: 0x3a2418, pants: 0x1e1c1a, hair: 0xa8a49c, hairStyle: 'bald', glasses: true, skin: 0x9a8070, arms: 'pockets', ry: -Math.PI / 2 });
+    // Jory: on a crate by the barrel fire, beanie, beard, hands to the flames
+    B.box(0.5, 0.42, 0.45, 0x2a1e14, 34.2, 0, -25.3);
+    B.person(34.2, -25.3, { pose: 'sit', seatH: 0.46, coat: 0x2e2a1c, coatLen: 'long', shirt: 0x3a3428, pants: 0x22201a, hat: 'beanie', hatColor: 0x3a2418, hair: 0x4a4038, hairStyle: 'messy', beard: true, scarf: 0x3a3a30, skin: 0x6a5040, arms: 'fire', ry: B.faceTo(34.2, -25.3, 35.4, -24.5) });
+    // Father Morrow: cassock, clerical collar, hands clasped
+    B.person(-3.2, -63.6, { old: true, coat: 0x0c0c0e, coatLen: 'long', shirt: 0x0c0c0e, pants: 0x0c0c0e, collar: true, hair: 0xa8a8a8, hairStyle: 'bald', glasses: true, skin: 0x9a8070, arms: 'clasp', ry: 0 });
+    // the stranger at the end of the street: tall, long coat, fedora, cane, glasses that catch the light
+    const stranger = B.person(-3.4, -40.9, { coat: 0x2a2a32, coatLen: 'long', shirt: 0x6a6a70, tie: 0x0a0a0a, pants: 0x18181c, hat: 'fedora', hatColor: 0x060606, cane: true, glasses: true, glint: true, hair: 0x4a4a4a, skin: 0x7a6a60, ry: Math.PI / 2, scale: 1.08, idle: false, collide: false });
     stranger.visible = false;
-    const glint = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.035, 0.02), new THREE.MeshBasicMaterial({ color: 0xcfe0ff }));
-    glint.position.set(0, 0.85 + 0.82, 0.16); stranger.userData.inner.add(glint);
 
     // ---- interactions ----
     api.interact({ pos: [4.6, 1.5, 21.5], label: 'Talk to Sergeant Holt', use: () => api.talk(W_HOLT) });
