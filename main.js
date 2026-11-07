@@ -3,9 +3,11 @@ import * as B from './builders.js';
 import { CASES } from './cases.js';
 import { Sound } from './audio.js';
 import { openPrint } from './fingerprint.js';
+import { Voices } from './voice.js';
 
 const $ = (id) => document.getElementById(id);
 const sound = new Sound();
+const voices = new Voices();
 
 // ---------- settings ----------
 const settings = (() => {
@@ -171,6 +173,7 @@ function makeRain(count) {
 function startCase(def) {
   disposeScene(scene);
   $('menu').classList.add('hidden'); $('pause').classList.add('hidden');
+  voices.stop(); $('danger').style.opacity = 0; $('jolt').className = '';
   scene = new THREE.Scene();
   scene.background = new THREE.Color(0x030407);
   scene.fog = new THREE.FogExp2(0x030407, def.fog);
@@ -205,10 +208,12 @@ function playIntro(def) {
     const p = document.createElement('p'); p.textContent = t; p.className = i < 2 ? 'big' : '';
     p.style.animationDelay = `${i * 1.6}s`; lines.appendChild(p);
   });
+  voices.chain(def.intro.map((_, i) => `${def.id}.intro.${i}`), 500);
   const go = document.createElement('button'); go.className = 'btn ghost'; go.textContent = 'Begin investigation';
   go.style.animationDelay = `${def.intro.length * 1.6}s`; go.classList.add('fadein');
   go.onclick = () => {
     el.classList.add('hidden'); state = 'play'; $('hud').classList.remove('hidden');
+    voices.stop();
     if (TOUCH.on) goFullscreen();
     lock();
   };
@@ -248,6 +253,13 @@ const api = {
   refresh: () => refresh(),
   flash: (on) => { G.flashOn = on; if (!on) flash.intensity = 0; sound.click(); },
   ambience: (o) => { G.ambience = o; },
+  // voice lines and scare effects
+  voice: (id, opts) => voices.play(id, opts),
+  hasVoice: (id) => voices.has(id),
+  stopVoice: () => voices.stop(),
+  shake: (v) => { G.shake = Math.max(G.shake || 0, v); },
+  danger: (v) => { $('danger').style.opacity = Math.max(0, Math.min(1, v)); },
+  jolt: (kind) => { const el = $('jolt'); el.className = ''; void el.offsetWidth; if (kind) el.className = kind; },
   // chase / scripted-scene helpers
   get player() { return G.pos; },
   get touch() { return TOUCH.on; },
@@ -313,25 +325,25 @@ function openDialog(w) {
   openUI('dialog');
   $('dName').textContent = w.name;
   dlg = { w, lines: null, i: 0, typing: null, done: null };
-  showLines(w.intro, () => showTopics());
+  showLines(w.intro, () => showTopics(), w.intro.map((_, i) => `${w.id}.intro.${i}`));
 }
 function typeText(el, text) {
   clearInterval(dlg.typing); el.textContent = ''; let i = 0;
   dlg.full = text;
   dlg.typing = setInterval(() => { i += 2; el.textContent = text.slice(0, i); if (i >= text.length) { clearInterval(dlg.typing); dlg.typing = null; } }, 18);
 }
-function showLines(lines, done) {
-  dlg.lines = lines; dlg.i = 0; dlg.done = done;
+function showLines(lines, done, ids = []) {
+  dlg.lines = lines; dlg.i = 0; dlg.done = done; dlg.ids = ids;
   const opts = $('dOpts'); opts.innerHTML = '';
   const btn = document.createElement('button'); btn.className = 'opt cont'; btn.textContent = 'Continue  ▸';
   btn.onclick = advance; opts.appendChild(btn);
-  typeText($('dText'), lines[0]); sound.page();
+  typeText($('dText'), lines[0]); sound.page(); voices.play(ids[0]);
 }
 function advance() {
   if (!dlg || !dlg.lines) return;
   if (dlg.typing) { clearInterval(dlg.typing); dlg.typing = null; $('dText').textContent = dlg.full; return; }
   dlg.i++;
-  if (dlg.i < dlg.lines.length) { typeText($('dText'), dlg.lines[dlg.i]); sound.page(); return; }
+  if (dlg.i < dlg.lines.length) { typeText($('dText'), dlg.lines[dlg.i]); sound.page(); voices.play(dlg.ids[dlg.i]); return; }
   const d = dlg.done; dlg.lines = null; d && d();
 }
 function showTopics() {
@@ -344,12 +356,13 @@ function showTopics() {
     b.innerHTML = `<span class="k">${n + 1}</span>${t.q}`;
     b.onclick = () => {
       G.asked.add(key);
-      showLines(t.a, () => { if (t.gives) api.give(t.gives); if (t.then) t.then(api); refresh(); showTopics(); });
+      const ti = w.topics.indexOf(t);
+      showLines(t.a, () => { if (t.gives) api.give(t.gives); if (t.then) t.then(api); refresh(); showTopics(); }, t.a.map((_, i) => `${w.id}.t${ti}.${i}`));
     };
     opts.appendChild(b);
   });
   const leave = document.createElement('button'); leave.className = 'opt leave'; leave.innerHTML = '<span class="k">Esc</span>Leave';
-  leave.onclick = () => { dlg = null; closeUI(); }; opts.appendChild(leave);
+  leave.onclick = () => { dlg = null; voices.stop(); closeUI(); }; opts.appendChild(leave);
   const pending = w.topics.length - avail.length;
   $('dText').innerHTML = `<i class="muted">What do you ask?${pending ? ' (Some questions open up once you know more.)' : ''}</i>`;
 }
@@ -451,9 +464,10 @@ function accuse(s) {
   const body = $('eBody'); body.innerHTML = '';
   end.text.forEach((t, i) => { const p = document.createElement('p'); p.textContent = t; p.style.animationDelay = `${0.8 + i * 1.8}s`; body.appendChild(p); });
   $('eActs').style.animationDelay = `${1 + end.text.length * 1.8}s`;
+  voices.chain(end.text.map((_, i) => (good ? `${def.id}.good.${i}` : `${def.id}.bad.${s.id}.${i}`)), 450);
 }
-$('eMenu').onclick = () => { $('ending').classList.add('hidden'); toMenu(); };
-$('eRetry').onclick = () => { $('ending').classList.add('hidden'); startCase(G.def); };
+$('eMenu').onclick = () => { voices.stop(); $('ending').classList.add('hidden'); toMenu(); };
+$('eRetry').onclick = () => { voices.stop(); $('ending').classList.add('hidden'); startCase(G.def); };
 
 // ---------- cutscene ----------
 function startCutscene(steps, done) {
@@ -481,6 +495,9 @@ function nextShot() {
   c.dur = s.dur || s.hold || 2;
   const cap = $('caption');
   if (s.text) { cap.textContent = s.text; cap.classList.add('on'); } else cap.classList.remove('on');
+  // a voiced caption holds the shot until the line has finished (browser recordings often
+  // don't report their length, so wait for the actual end rather than trusting duration)
+  c.voice = s.vo && voices.has(s.vo) ? voices.play(s.vo) : null;
   s.onStart && s.onStart();
 }
 function updateCut(dt) {
@@ -488,7 +505,11 @@ function updateCut(dt) {
   const k = Math.min(1, c.t / c.dur), e = k * k * (3 - 2 * k);
   camera.position.lerpVectors(c.fromP, c.toP, e);
   camera.quaternion.slerpQuaternions(c.fromQ, c.toQ, e);
-  if (c.t >= c.dur) nextShot();
+  if (c.t >= c.dur) {
+    const v = c.voice;
+    if (v && !v.ended && !v.paused && c.t < c.dur + 15) return;
+    nextShot();
+  }
 }
 
 // ---------- menu / warning ----------
@@ -498,6 +519,7 @@ function toMenu() {
   ['dialog', 'inspect', 'notebook', 'board', 'printer'].forEach((id) => $(id).classList.add('hidden'));
   if (G) G.ui = null;
   if (locked()) document.exitPointerLock();
+  voices.stop(); $('danger').style.opacity = 0; $('jolt').className = '';
   const list = $('caseList'); list.innerHTML = '';
   for (const def of CASES) {
     const r = results[def.id];
@@ -519,7 +541,12 @@ $('quit').onclick = () => toMenu();
 const bindSlider = (id, key, apply) => { const el = $(id); el.value = settings[key]; el.oninput = () => { settings[key] = +el.value; apply(+el.value); saveSettings(); }; };
 bindSlider('sBright', 'bright', (v) => { renderer.toneMappingExposure = v; });
 bindSlider('sSens', 'sens', () => {});
-bindSlider('sVol', 'vol', (v) => sound.setVolume(v));
+bindSlider('sVol', 'vol', (v) => { sound.setVolume(v); voices.setVolume(v); });
+voices.setVolume(settings.vol);
+voices.on = settings.voices !== false;
+$('sVoices').checked = voices.on;
+$('sVoices').onchange = () => { settings.voices = voices.on = $('sVoices').checked; if (!voices.on) voices.stop(); saveSettings(); };
+voices.ready.then(() => { $('voiceCount').textContent = voices.count ? `${voices.count} recorded lines` : 'none recorded yet'; });
 function syncQualityUI() { $('sQuality').value = settings.quality; }
 syncQualityUI();
 $('sQuality').onchange = () => { const was = settings.quality; settings.quality = $('sQuality').value; settings.qualityManual = true; saveSettings(); applyQuality(); if (G && state === 'play' && (was === 'low') !== (settings.quality === 'low')) toast('Some changes apply fully the next time you start a case'); };
@@ -539,7 +566,7 @@ addEventListener('keydown', (e) => {
   if (G.cut) return;
   if (G.ui === 'dialog') {
     if (['Space', 'Enter', 'KeyE'].includes(e.code)) { if (dlg && dlg.lines) advance(); e.preventDefault(); }
-    else if (e.code === 'Escape' && dlg && !dlg.lines) { dlg = null; closeUI(); }
+    else if (e.code === 'Escape' && dlg && !dlg.lines) { dlg = null; voices.stop(); closeUI(); }
     else if (/^Digit[1-9]$/.test(e.code) && dlg && !dlg.lines) { const b = $('dOpts').querySelectorAll('.opt:not(.leave)')[+e.code.slice(5) - 1]; b && b.click(); }
     return;
   }
@@ -799,6 +826,10 @@ function frame(now) {
     camera.position.set(G.pos.x, 1.65, G.pos.z); camera.rotation.set(G.pitch, G.yaw + Math.sin(G.t * 0.1) * 0.05, 0);
   }
   for (const a of G.anims) a(dt);
+  if (G.shake > 0) {
+    camera.position.x += (Math.random() - 0.5) * G.shake * 0.12; camera.position.y += (Math.random() - 0.5) * G.shake * 0.1;
+    camera.rotation.z += (Math.random() - 0.5) * G.shake * 0.06; G.shake = Math.max(0, G.shake - dt * 1.4);
+  }
   updatePool();
   updateCulling();
   updateFps(dt);
@@ -816,4 +847,4 @@ requestAnimationFrame(frame);
 })();
 
 // debug / test hook (used by headless playtests)
-window.__hb = { CASES, startCase, api, toMenu, camera, renderer, settings, applyQuality, get G() { return G; }, get state() { return state; } };
+window.__hb = { CASES, startCase, api, toMenu, camera, renderer, settings, applyQuality, voices, get G() { return G; }, get state() { return state; } };

@@ -4,7 +4,21 @@ import * as THREE from 'three';
 /* ============================================================
    CASE 1 — CMARY TOWN — SEPTEMBER 9TH
    ============================================================ */
+// Cutscene captions. A caption's position here is its voice id: <case>.<scene>.<index>
+const CAP = {
+  cmary: {
+    shed: ['The padlock has been cut.', '', 'A yellow raincoat.', 'Lily Rowe. Eleven years old.', 'The knife is still in her back.', 'She was gone long before you got here.'],
+  },
+  wing: {
+    morgue: ['IV. Carved into the door. Fresh.', "It isn't locked.", 'On the desk by the door: the drug log, and a shoebox of stopped watches.', 'Someone is in here.', "He's eating something.", '', '', 'He smiles at you.', 'RUN.'],
+    arrest: ['HOLT: Police! On the ground! NOW!', 'He stops. He tilts his head at you, and smiles.', 'Then he kneels in the road, laughing, while Holt cuffs him.', "HOLT: He won't give a name. I can hold him till morning.", 'HOLT: Put it together on the board, Detective. Charge the right person, or he walks.'],
+  },
+};
+const C = (c, scene, i) => ({ text: CAP[c][scene][i], vo: `${c}.${scene}.${i}` });
+
 const CMARY = {
+  get captions() { return CAP.cmary; },
+  get witnesses() { return [W_REYES, W_MOM, W_WALTER, W_DENISE]; },
   id: 'cmary',
   num: 'CASE 01',
   title: 'The Rowe Girl',
@@ -278,12 +292,12 @@ const CMARY = {
         let t = 0; api.anims.push((dt) => { if (t < 1) { t = Math.min(1, t + dt * 0.5); door.rotation.y = -t * 1.9; } });
         api.flash(true);
         api.cutscene([
-          { pos: [sx + W / 2 + 1.6, 1.7, sz + 0.4], look: [sx + W / 2, 1.2, sz], dur: 2.2, text: 'The padlock has been cut.' },
+          { pos: [sx + W / 2 + 1.6, 1.7, sz + 0.4], look: [sx + W / 2, 1.2, sz], dur: 2.2, ...C('cmary', 'shed', 0) },
           { pos: [sx + W / 2 + 0.3, 1.55, sz + 0.1], look: [sx - 0.6, 0.2, sz], dur: 3.5, text: '', onStart: () => api.sound.stinger() },
-          { pos: [sx + W / 2 - 0.2, 1.35, sz + 0.05], look: [sx - 0.7, 0.15, sz], dur: 4, text: 'A yellow raincoat.' },
-          { hold: 3.5, text: 'Lily Rowe. Eleven years old.', onStart: () => api.sound.heartbeat(7) },
-          { hold: 3.5, text: 'The knife is still in her back.' },
-          { hold: 4, text: 'She was gone long before you got here.' },
+          { pos: [sx + W / 2 - 0.2, 1.35, sz + 0.05], look: [sx - 0.7, 0.15, sz], dur: 4, ...C('cmary', 'shed', 2) },
+          { hold: 3.5, ...C('cmary', 'shed', 3), onStart: () => api.sound.heartbeat(7) },
+          { hold: 3.5, ...C('cmary', 'shed', 4) },
+          { hold: 4, ...C('cmary', 'shed', 5) },
         ], () => {
           api.give('body');
           api.inspect({ title: 'The knife', text: ['You do not touch her. You wait for the coroner, and you look at the knife until you can stand to read it.', 'A hunting knife. Black handle. Stamped near the guard: PRUETT HARDWARE — INV 0412.', 'Store stock. Never sold.'], onClose: () => api.give('knife') });
@@ -336,6 +350,8 @@ const W_DENISE = {
    CASE 2 — WINGINTONN TOWN — THE TALLYMAN
    ============================================================ */
 const WING = {
+  get captions() { return CAP.wing; },
+  get witnesses() { return [W_HOLT, W_MAE, W_FINCH, W_JORY, W_MORROW]; },
   id: 'wing',
   num: 'CASE 02',
   title: 'The Tallyman',
@@ -579,8 +595,9 @@ const WING = {
     stranger.userData.noCull = true;
     stranger.userData.spine.rotation.x = 0.5;
     // whatever he is eating: dark, wet, never shown clearly
-    const lump = new THREE.Mesh(new THREE.SphereGeometry(0.06, 8, 6), B.mat(0x240909, { rough: 0.15, metal: 0.1 }));
-    lump.scale.set(1.3, 0.8, 1); lump.position.set(0, 0.52, 0.25); stranger.userData.spine.add(lump);
+    const lump = new THREE.Group(), lumpMat = B.mat(0x160404, { rough: 0.4, metal: 0.05 });
+    for (const [lx, ly, lz, r] of [[0, 0, 0, 0.04], [0.025, -0.012, 0.01, 0.03], [-0.02, 0.008, -0.012, 0.028]]) { const m = new THREE.Mesh(new THREE.IcosahedronGeometry(r, 0), lumpMat); m.position.set(lx, ly, lz); m.rotation.set(lx * 40, ly * 30, lz * 50); lump.add(m); }
+    lump.position.set(0, 0.52, 0.25); stranger.userData.spine.add(lump);
 
     // ---- interactions ----
     api.interact({ pos: [4.6, 1.5, 21.5], label: 'Talk to Sergeant Holt', use: () => api.talk(W_HOLT) });
@@ -619,20 +636,37 @@ const WING = {
         sHead.rotation.y = e * 2.85; sHead.rotation.z = e * 0.45; sHead.rotation.x = -0.12 - e * 0.1;
       }
     });
+    function startChewing() {
+      if (api.hasVoice('man.chew')) { api.voice('man.chew', { loop: true }); chew = true; return; }
+      chew = setInterval(() => { if (Math.random() < 0.75) api.sound.chew(); }, 260);
+    }
+    function stopChewing() { if (chew === true) api.stopVoice(); else clearInterval(chew); chew = null; }
+    function jumpscare() {
+      stopChewing();
+      placeStranger(MX0 + 0.42, -53.5, -Math.PI / 2); lump.visible = false;
+      sSpine.rotation.set(0.12, 0, 0); sHead.rotation.set(0.05, 0, 0.22); headTurn = 1;
+      tubeOn = true;
+      api.sound.scream(); api.voice('man.scream');
+      api.shake(1.4); api.jolt('white');
+    }
     function morgueScene() {
       api.flags.morgue = true;
       api.flash(true);
       api.cutscene([
-        { pos: [4.0, 1.6, -53.0], look: [MX0 - 0.05, 1.45, -53.5], dur: 2.2, text: 'IV. Carved into the door. Fresh.' },
-        { hold: 2.2, text: 'It isn\'t locked.', onStart: () => { api.sound.door(); doorOpen = 0.001; } },
-        { pos: [5.1, 1.62, -53.4], look: [8.4, 1.15, -53.5], dur: 2.8, text: 'On the desk by the door: the drug log, and a shoebox of stopped watches.',
-          onStart: () => { tubeOn = true; chew = setInterval(() => { if (Math.random() < 0.75) api.sound.chew(); }, 260); } },
-        { hold: 3.2, text: 'Someone is in here.' },
-        { pos: [6.0, 1.55, -53.32], look: [8.25, 1.3, -53.5], dur: 3.2, text: 'He\'s eating something.' },
-        { hold: 2.2, text: '', onStart: () => { clearInterval(chew); chew = null; } },
+        { pos: [4.0, 1.6, -53.0], look: [MX0 - 0.05, 1.45, -53.5], dur: 2.2, ...C('wing', 'morgue', 0) },
+        { hold: 2.2, ...C('wing', 'morgue', 1), onStart: () => { api.sound.door(); doorOpen = 0.001; } },
+        { pos: [5.1, 1.62, -53.4], look: [8.4, 1.15, -53.5], dur: 2.8, ...C('wing', 'morgue', 2),
+          onStart: () => { tubeOn = true; startChewing(); } },
+        { hold: 3.2, ...C('wing', 'morgue', 3) },
+        { pos: [6.0, 1.55, -53.32], look: [8.25, 1.3, -53.5], dur: 3.2, ...C('wing', 'morgue', 4) },
+        { hold: 2.2, text: '', onStart: () => stopChewing() },
         { hold: 3.2, text: '', onStart: () => { headTurn = 0.001; api.sound.growl(); setTimeout(() => api.sound.stinger(), 900); } },
-        { hold: 1.8, text: 'He smiles at you.' },
-        { pos: [4.6, 1.65, -53.5], look: [4.6, 1.6, -40], dur: 0.7, text: 'RUN.', onStart: () => api.sound.heartbeat(3, 0.4) },
+        { hold: 1.8, ...C('wing', 'morgue', 7) },
+        // JUMPSCARE: he is suddenly right in the doorway, in your face
+        { pos: [MX0 - 0.25, 1.8, -53.5], look: [MX0 + 0.6, 1.79, -53.5], dur: 0.05, text: '', onStart: jumpscare },
+        { hold: 0.85, text: '' },
+        { hold: 0.4, text: '', onStart: () => api.jolt('black') },
+        { pos: [4.6, 1.65, -53.5], look: [4.6, 1.6, -40], dur: 0.6, ...C('wing', 'morgue', 8), onStart: () => { api.jolt(''); api.sound.heartbeat(3, 0.4); } },
       ], () => {
         api.give('log'); api.give('watches');
         startChase(true);
@@ -641,7 +675,7 @@ const WING = {
 
     // ---------- the chase: get to Holt ----------
     const HOLT = new THREE.Vector3(4.6, 0, 21.5);
-    const chase = { on: false, t: 0, step: 0, beat: 0 };
+    const chase = { on: false, t: 0, step: 0, beat: 0, lunge: 0, nextLunge: 4 };
     const tmpV = new THREE.Vector3();
     function placeStranger(x, z, ry) { stranger.position.set(x, 0, z); stranger.rotation.y = ry; }
     function startChase(first) {
@@ -650,7 +684,7 @@ const WING = {
       placeStranger(6.6, -53.5, -Math.PI / 2);
       lump.visible = false;
       sSpine.rotation.set(0.32, 0, 0); sHead.rotation.set(-0.1, 0, 0.3);
-      chase.on = true; chase.t = 0;
+      chase.on = true; chase.t = 0; chase.lunge = 0; chase.nextLunge = 3.5 + Math.random() * 2;
       tubeOn = false; tubeLight.cur = 0; tubeMat.color.setRGB(0.1, 0.1, 0.1);
       api.refresh();
       if (first) api.toast(api.touch ? 'Push the stick all the way to RUN' : 'Hold SHIFT to RUN');
@@ -662,12 +696,18 @@ const WING = {
       // lamps stutter while he is coming
       if (Math.random() < 0.05) { const l = api.lamps[Math.floor(Math.random() * api.lamps.length)]; B.setLamp(l, false); setTimeout(() => B.setLamp(l, true), 120 + Math.random() * 300); }
       chase.beat -= dt; if (chase.beat <= 0) { chase.beat = 0.55; api.sound.heartbeat(1); }
-      if (p.distanceTo(HOLT) < 6.5) { arrest(); return; }
+      if (p.distanceTo(HOLT) < 6.5) { api.danger(0); arrest(); return; }
       if (chase.t < 0.9) return; // a heartbeat's head start
       tmpV.set(p.x - s.x, 0, p.z - s.z);
       const d = tmpV.length();
       if (d < 1.0) { caught(); return; }
-      const speed = d > 14 ? 6.2 : 4.75; // faster than walking, a little slower than running
+      api.danger(1 - d / 7);
+      if (d < 3) api.shake(0.35 * (1 - d / 3));
+      // every few seconds he lunges: a short burst of speed with a snarl
+      chase.nextLunge -= dt;
+      if (chase.nextLunge <= 0) { chase.lunge = 0.55; chase.nextLunge = 3.5 + Math.random() * 2.5; if (!api.voice('man.breath')) api.sound.growl(); }
+      chase.lunge = Math.max(0, chase.lunge - dt);
+      const speed = d > 14 ? 6.2 : chase.lunge > 0 ? 5.9 : 4.75; // faster than walking, a little slower than running
       tmpV.multiplyScalar(Math.min(d, speed * dt) / d);
       s.add(tmpV);
       if (s.x < 5.2) api.collide(s, 0.35);
@@ -680,7 +720,8 @@ const WING = {
     });
     function caught() {
       chase.on = false;
-      api.sound.stinger();
+      api.danger(0); api.jolt('red'); api.shake(1.2);
+      api.sound.scream(); api.voice('man.scream');
       api.blackout('He caught you.', 2300, () => startChase(false));
     }
     function arrest() {
@@ -693,11 +734,11 @@ const WING = {
       api.lamps.forEach((l) => B.setLamp(l, true));
       api.setPlayer(Math.max(-3, Math.min(3.8, p.x)), Math.max(p.z, sz + 3.2), Math.PI);
       api.cutscene([
-        { pos: [HOLT.x - 1.0, 1.75, HOLT.z - 0.9], look: [sx, 1.55, sz], dur: 0.9, text: 'HOLT: Police! On the ground! NOW!', onStart: () => api.sound.click() },
-        { hold: 2.6, text: 'He stops. He tilts his head at you, and smiles.' },
-        { hold: 3.2, text: 'Then he kneels in the road, laughing, while Holt cuffs him.', onStart: () => { sInner.position.y = -0.4; sSpine.rotation.x = 0.25; sHead.rotation.set(0.15, 0, 0.35); api.sound.growl(); } },
-        { pos: [sx - 2.0, 2.1, sz - 3.4], look: [HOLT.x - 0.9, 1.0, HOLT.z - 1.5], dur: 1.8, text: "HOLT: He won't give a name. I can hold him till morning." },
-        { hold: 3.6, text: 'HOLT: Put it together on the board, Detective. Charge the right person, or he walks.' },
+        { pos: [HOLT.x - 1.0, 1.75, HOLT.z - 0.9], look: [sx, 1.55, sz], dur: 0.9, ...C('wing', 'arrest', 0), onStart: () => api.sound.click() },
+        { hold: 2.6, ...C('wing', 'arrest', 1) },
+        { hold: 3.2, ...C('wing', 'arrest', 2), onStart: () => { sInner.position.y = -0.4; sSpine.rotation.x = 0.25; sHead.rotation.set(0.15, 0, 0.35); if (!api.voice('man.laugh')) api.sound.growl(); } },
+        { pos: [sx - 2.0, 2.1, sz - 3.4], look: [HOLT.x - 0.9, 1.0, HOLT.z - 1.5], dur: 1.8, ...C('wing', 'arrest', 3) },
+        { hold: 3.6, ...C('wing', 'arrest', 4) },
       ], () => {
         api.flags.chasing = false; api.flags.arrested = true;
         placeStranger(6.2, 23.6, -Math.PI / 2);

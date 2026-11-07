@@ -64,6 +64,22 @@ export class Sound {
   page() { this.burst(0.18, 2400, 0.08, 'bandpass'); }
   clue() { this.tone(392, 1.2, 0.08); this.tone(523, 1.6, 0.06, 'sine', 0.12); this.tone(311, 2.2, 0.05, 'triangle', 0.25); }
   door() { this.tone(70, 1.4, 0.2, 'sawtooth'); this.burst(1.2, 400, 0.12, 'bandpass'); }
+  // jumpscare shriek: detuned saws sweeping up with fast vibrato, plus a noise blast
+  scream() {
+    if (!this.ctx) return;
+    const c = this.ctx, t = c.currentTime;
+    const g = c.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.42, t + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t + 1.4);
+    const f = c.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 1600; f.Q.value = 0.7;
+    g.connect(f).connect(this.master);
+    const vib = c.createOscillator(); vib.frequency.value = 31; const vg = c.createGain(); vg.gain.value = 70; vib.connect(vg); vib.start(t); vib.stop(t + 1.45);
+    for (const [f0, f1] of [[880, 1500], [1230, 2050], [610, 1020]]) {
+      const o = c.createOscillator(); o.type = 'sawtooth';
+      o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(f1, t + 0.22); o.frequency.exponentialRampToValueAtTime(f0 * 0.6, t + 1.3);
+      vg.connect(o.frequency); o.connect(g); o.start(t); o.stop(t + 1.45);
+    }
+    this.burst(0.9, 2600, 0.4, 'bandpass');
+    this.tone(48, 1.2, 0.5, 'sine');
+  }
   chew() {
     this.burst(0.09 + Math.random() * 0.06, 380 + Math.random() * 320, 0.24);
     if (Math.random() < 0.6) setTimeout(() => this.burst(0.04, 1400 + Math.random() * 900, 0.07, 'bandpass'), 40 + Math.random() * 60);

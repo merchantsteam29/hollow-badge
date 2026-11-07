@@ -12,6 +12,13 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); c
 #grain { position: fixed; inset: -50%; pointer-events: none; z-index: 2; opacity: 0.5; animation: grain 0.6s steps(6) infinite; }
 @keyframes grain { 0%{transform:translate(0,0)} 20%{transform:translate(-3%,2%)} 40%{transform:translate(2%,-3%)} 60%{transform:translate(-2%,-1%)} 80%{transform:translate(3%,3%)} 100%{transform:translate(0,0)} }
 
+#danger { position: fixed; inset: 0; z-index: 4; pointer-events: none; opacity: 0; transition: opacity 0.12s; background: radial-gradient(ellipse at center, transparent 35%, rgba(120, 0, 0, 0.55) 75%, rgba(60, 0, 0, 0.9) 100%); }
+#jolt { position: fixed; inset: 0; z-index: 7; pointer-events: none; opacity: 0; }
+#jolt.white { background: #fff; animation: jolt 0.45s ease-out forwards; }
+#jolt.red { background: #a00; animation: jolt 0.7s ease-out forwards; }
+#jolt.black { background: #000; opacity: 1; }
+@keyframes jolt { from { opacity: 0.95; } to { opacity: 0; } }
+.gpu a { color: var(--amber); }
 #blackout { position: fixed; inset: 0; z-index: 35; background: #000; display: flex; align-items: center; justify-content: center; font-family: 'Special Elite', monospace; font-size: clamp(22px, 3vw, 34px); color: #c0262c; letter-spacing: 0.08em; opacity: 0; pointer-events: none; transition: opacity 0.2s; }
 #blackout.on { opacity: 1; }
 #letterbox i { position: fixed; left: 0; right: 0; height: 0; background: #000; z-index: 5; transition: height 0.8s ease; }
