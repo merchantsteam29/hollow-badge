@@ -36,6 +36,8 @@ const CMARY = {
   ],
   fog: 0.05, rain: 0.16, spawn: { x: 1.6, z: 24, yaw: 0 },
   required: ['print', 'van', 'jacket', 'body'],
+  // clues that point at the killer himself (the backpack or the body prove a crime, not who)
+  proof: ['print', 'van', 'jacket', 'knife', 'gary', 'mom_van', 'tracks'],
   culprit: 'voss',
   clues: {
     mom_time: { type: 'statement', title: 'Margaret Rowe — timeline', text: 'Last saw Lily at 7:50 AM. Lily should have been home by 3:50 PM. Margaret got home at 5:00 to an empty house.' },
@@ -97,6 +99,15 @@ const CMARY = {
         "At dawn you stand outside the Rowe house. Margaret's porch light is still on. Nobody turns it off for a long time.",
         'You found who did it. You did not find her in time.',
         'Some cases close. They never end.',
+      ],
+    },
+    weak: {
+      title: 'NOT ENOUGH',
+      text: [
+        'You charge Gary Voss. You are right, and you know it.',
+        'His lawyer takes your case apart in an afternoon. What you brought proves a crime happened. It does not prove who did it.',
+        'Voss walks out of the courthouse in March and leaves Cmary Town for good.',
+        'Margaret Rowe moves away the next spring.',
       ],
     },
     bad: (s) => ({
@@ -371,6 +382,7 @@ const WING = {
   ],
   fog: 0.058, rain: 0.1, spawn: { x: 0, z: 20, yaw: 0 },
   required: ['print2', 'scar', 'log'],
+  proof: ['print2', 'scar', 'log', 'limp', 'watch_buyer', 'chemical', 'daughter', 'watches'],
   culprit: 'crane',
   clues: {
     victims: { type: 'statement', title: 'Sgt. Holt — the victims', text: 'Carol Dunn, 71 (the lane off Main). Henry Oakes, 68 (riverbank by the bridge). Ruth Abara, 66 (church steps). All retired, all lived alone. Nothing stolen.' },
@@ -444,6 +456,15 @@ const WING = {
         'Under it, in fresh ink: your name.',
         '"You\'d have closed mine too," he says. "Everyone stops looking eventually."',
         'You do not tell him that you never do.',
+      ],
+    },
+    weak: {
+      title: 'NOT ENOUGH',
+      text: [
+        'You charge Dr. Elias Crane. You are right.',
+        'But what you put in front of the prosecutor could point at half of Wingintonn. Holt has to let him go at dawn.',
+        'On the ninth night, a fourth watch is found, stopped at 2:13.',
+        'Tally mark IV. It was meant for you.',
       ],
     },
     bad: (s) => ({

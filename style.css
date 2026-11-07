@@ -207,6 +207,10 @@ select { background: #15130f; color: var(--ink); border: 1px solid var(--line); 
 .suspect:hover { transform: rotate(0) scale(1.02); }
 .suspect.picked { outline: 3px solid var(--blood); }
 .suspect.locked { cursor: default; }
+.suspect.proof { transform: none; font-size: 14px; }
+.suspect.proof:hover { transform: scale(1.02); }
+.mug.evidence { background: #3a2a14; } .mug.statement { background: #1e2a34; }
+.mug.evidence, .mug.statement { font-size: 15px; width: 40px; height: 40px; }
 .mug { flex: none; width: 54px; height: 66px; background: #2a2620; color: #d6ccb4; display: flex; align-items: center; justify-content: center; font-family: 'Oswald', sans-serif; font-size: 20px; }
 .sinfo b { display: block; font-family: 'Oswald', sans-serif; font-size: 17px; }
 .sinfo em { display: block; font-size: 13px; color: #5a4e3e; margin-bottom: 4px; }
@@ -240,3 +244,7 @@ select { background: #15130f; color: var(--ink); border: 1px solid var(--line); 
   #printer .panel { padding: 12px 16px; }
 }
 body.touch .opt .k { display: none; }
+
+/* case board: keep the charge buttons on screen while the evidence list scrolls */
+#board .panel > .row { position: sticky; bottom: -26px; z-index: 2; margin: 18px -30px -26px; padding: 14px 30px; background: linear-gradient(rgba(15,11,7,0.85), #0f0b07 40%); }
+#bSuspects { padding-bottom: 6px; }

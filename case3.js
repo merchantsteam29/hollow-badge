@@ -34,6 +34,7 @@ export const HARROW = {
   ],
   fog: 0.045, rain: 0.06, snow: true, spawn: { x: 1.5, z: 23, yaw: 0 },
   required: ['ledger', 'liftpass', 'freezer'],
+  proof: ['ledger', 'liftpass', 'freezer', 'table', 'nogame', 'van3', 'calendar', 'plow'],
   culprit: 'walt',
   clues: {
     walt_missing: { type: 'statement', title: 'Walt — the missing', text: 'Nell Harmon, waitress, walked home Dec 12 and never arrived. Gus Lindqvist, plow driver, his truck found on the lake road Dec 16. Toby Reese, 19, gone two nights ago.' },
@@ -107,6 +108,15 @@ export const HARROW = {
         'For nine days, half of Harrow Falls ate at his counter. Nobody says it out loud.',
         'In the spring the diner is torn down. Nobody bids on the lot.',
         'Some nights, when it snows, you can still smell the stew.',
+      ],
+    },
+    weak: {
+      title: 'NOT ENOUGH',
+      text: [
+        'You charge Walter Ebner. You are right.',
+        'But nothing you put on the table proves it. A kind old man, a free meal, a frightened town: the jury sees a hero.',
+        'He reopens the diner in April. The stew is still free.',
+        'You never eat there again. Most people do.',
       ],
     },
     bad: (s) => ({

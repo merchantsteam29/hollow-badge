@@ -460,7 +460,7 @@ function openNotebook() {
 // ---------- case board ----------
 let boardPick = null;
 function openBoard() {
-  openUI('board'); boardPick = null;
+  openUI('board'); boardPick = null; boardStep = 'suspect'; picks = new Set(); $('bBack').classList.add('hidden');
   const def = G.def, ready = def.required.every((id) => G.clues.has(id));
   const have = def.required.filter((id) => G.clues.has(id)).length;
   $('bTitle').textContent = `${def.num} — ${def.title.toUpperCase()}`;
@@ -483,18 +483,51 @@ function openBoard() {
   $('bAccuse').disabled = true; $('bAccuse').textContent = ready ? 'Select a suspect' : 'Find more evidence';
   sound.page();
 }
+// Step 2: make your case. Pick exactly PROOF_N clues that prove the charge.
+const PROOF_N = 3;
+let boardStep = 'suspect', picks = new Set();
+function showEvidenceStep() {
+  boardStep = 'evidence'; picks = new Set();
+  const s = boardPick;
+  $('bStatus').innerHTML = `Make your case against <b>${s.name}</b>. Choose the <b>${PROOF_N}</b> pieces of evidence that prove <i>he</i> did it, not just that a crime happened. Weak evidence, and the killer walks.`.replace('<i>he</i>', 'they');
+  const list = $('bSuspects'); list.innerHTML = '';
+  for (const id of G.clues) {
+    const c = G.def.clues[id];
+    const card = document.createElement('div'); card.className = 'suspect proof'; card.dataset.id = id;
+    card.innerHTML = `<div class="mug ${c.type}">${c.type === 'evidence' ? 'EV' : 'ST'}</div><div class="sinfo"><b>${c.title}</b><span>${c.text}</span></div>`;
+    card.onclick = () => {
+      if (picks.has(id)) picks.delete(id); else if (picks.size < PROOF_N) picks.add(id);
+      card.classList.toggle('picked', picks.has(id));
+      updateEvidenceButton();
+    };
+    list.appendChild(card);
+  }
+  $('bBack').classList.remove('hidden');
+  updateEvidenceButton();
+}
+function updateEvidenceButton() {
+  const b = $('bAccuse');
+  b.disabled = picks.size !== PROOF_N;
+  b.textContent = picks.size === PROOF_N ? `Charge ${boardPick.name}` : `Choose evidence (${picks.size} / ${PROOF_N})`;
+}
+$('bBack').onclick = () => { $('bBack').classList.add('hidden'); openBoard(); };
 $('bAccuse').onclick = () => {
   if (!boardPick) return;
-  $('confirmText').textContent = `Charge ${boardPick.name}? This closes the case.`;
+  if (boardStep === 'suspect') { showEvidenceStep(); return; }
+  if (picks.size !== PROOF_N) return;
+  const titles = [...picks].map((id) => G.def.clues[id].title).join(', ');
+  $('confirmText').textContent = `Charge ${boardPick.name} with: ${titles}? This closes the case.`;
   $('confirm').classList.remove('hidden');
 };
 $('confirmNo').onclick = () => $('confirm').classList.add('hidden');
-$('confirmYes').onclick = () => { $('confirm').classList.add('hidden'); accuse(boardPick); };
+$('confirmYes').onclick = () => { $('confirm').classList.add('hidden'); accuse(boardPick, [...picks]); };
 $('bClose').onclick = () => closeUI();
 
-function accuse(s) {
-  const def = G.def, good = s.id === def.culprit;
-  const end = good ? def.endings.good : def.endings.bad(s);
+function accuse(s, chosen = []) {
+  const def = G.def;
+  const right = s.id === def.culprit, proven = chosen.length > 0 && chosen.every((id) => def.proof.includes(id));
+  const good = right && proven, weak = right && !proven;
+  const end = good ? def.endings.good : weak ? def.endings.weak : def.endings.bad(s);
   results[def.id] = good ? 'solved' : (results[def.id] === 'solved' ? 'solved' : 'failed'); saveResults();
   $('board').classList.add('hidden'); G.ui = null;
   state = 'ending'; $('hud').classList.add('hidden');
@@ -504,7 +537,7 @@ function accuse(s) {
   const body = $('eBody'); body.innerHTML = '';
   end.text.forEach((t, i) => { const p = document.createElement('p'); p.textContent = t; p.style.animationDelay = `${0.8 + i * 1.8}s`; body.appendChild(p); });
   $('eActs').style.animationDelay = `${1 + end.text.length * 1.8}s`;
-  voices.chain(end.text.map((_, i) => (good ? `${def.id}.good.${i}` : `${def.id}.bad.${s.id}.${i}`)), 450);
+  voices.chain(end.text.map((_, i) => (good ? `${def.id}.good.${i}` : weak ? `${def.id}.weak.${i}` : `${def.id}.bad.${s.id}.${i}`)), 450);
 }
 $('eMenu').onclick = () => { voices.stop(); $('ending').classList.add('hidden'); toMenu(); };
 $('eRetry').onclick = () => { voices.stop(); $('ending').classList.add('hidden'); startCase(G.def); };

@@ -47,6 +47,7 @@ export function buildScript(CASES) {
       lines.forEach((t, i) => { if (t && t !== 'RUN.') out.push({ id: `${c.id}.${scene}.${i}`, role: speakerOf(t), text: stripSpeaker(t), where: `${c.num}: cutscene (${scene})` }); });
     }
     c.endings.good.text.forEach((t, i) => out.push({ id: `${c.id}.good.${i}`, role: 'narrator', text: t, where: `${c.num}: good ending` }));
+    if (c.endings.weak) c.endings.weak.text.forEach((t, i) => out.push({ id: `${c.id}.weak.${i}`, role: 'narrator', text: t, where: `${c.num}: right person, weak evidence` }));
     for (const s of c.suspects) {
       if (s.id === c.culprit) continue;
       c.endings.bad(s).text.forEach((t, i) => out.push({ id: `${c.id}.bad.${s.id}.${i}`, role: 'narrator', text: t, where: `${c.num}: bad ending (charged ${s.name})` }));
