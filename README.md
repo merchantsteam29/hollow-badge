@@ -1,6 +1,6 @@
 # Hollow Badge
 
-**Content warning: this game is very dark.** It deals with the kidnapping and murder of a child, serial murder and grief. Nothing graphic is shown. It is meant for players aged 16 and up.
+**Content warning: this game is very dark.** It contains murder, violence against children, death and frightening scenes. Nothing graphic is shown. It is meant for players aged 16 and up.
 
 Hollow Badge is a first-person 3D detective game that runs in the browser. You walk crime scenes by flashlight, talk to witnesses, dust for fingerprints, and then charge a suspect from the case board. If you charge the wrong person, you get a bad ending.
 

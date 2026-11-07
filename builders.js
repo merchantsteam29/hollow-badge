@@ -353,7 +353,7 @@ export function person(x, z, o = {}) {
   const ARM = {
     down: [[0.05, 0, 0.09], [-0.18, 0]], hug: [[-0.3, 0, -0.28], [-1.75, 0.95]], clasp: [[-0.22, 0, -0.12], [-1.05, 0.55]],
     pockets: [[0.12, 0, 0.14], [-0.35, 0]], knees: [[-0.45, 0, 0.06], [-0.75, 0]], fire: [[-1.0, 0, -0.04], [-0.55, 0.25]],
-    flashlight: [[-0.1, 0, 0.08], [-0.5, 0]], cane: [[-0.12, 0, 0.12], [-0.3, 0]],
+    flashlight: [[-0.1, 0, 0.08], [-0.5, 0]], cane: [[-0.12, 0, 0.12], [-0.3, 0]], eat: [[-0.6, 0, -0.18], [-1.95, 0.55]],
   };
   const pose = o.arms || (o.cane ? 'cane' : sit ? 'knees' : 'down');
   const arms = [];
@@ -403,7 +403,13 @@ export function person(x, z, o = {}) {
     const brow = cube(0.04, 0.009, 0.012, M.hair, s * 0.037, 0.122, 0.098, head); brow.rotation.z = s * -0.12;
     ball(0.024, M.skin, s * 0.104, 0.085, -0.005, head, 0.45, 1, 0.75, 8); // ear
   }
-  cube(0.036, 0.006, 0.01, M.lip, 0, 0.032, 0.098, head); // mouth
+  if (o.grin) {
+    // a smile that is too wide for the face
+    const dark = mat(0x0a0303, { rough: 0.4 });
+    cube(0.118, 0.014, 0.012, dark, 0, 0.03, 0.094, head);
+    cube(0.104, 0.007, 0.01, mat(0xcfc8b4, { rough: 0.3 }), 0, 0.035, 0.097, head);
+    for (const s of [-1, 1]) { const c = cube(0.03, 0.01, 0.01, dark, s * 0.066, 0.041, 0.086, head); c.rotation.z = s * 0.55; c.rotation.y = s * -0.5; }
+  } else cube(0.036, 0.006, 0.01, M.lip, 0, 0.032, 0.098, head); // mouth
   if (o.beard) {
     const bm = o.beard === 'stubble' ? mat(o.hair ?? 0x1a1410, { rough: 1, opacity: 0.55 }) : M.hair;
     ball(0.082, bm, 0, 0.018, 0.03, head, 1.05, o.beard === 'stubble' ? 0.85 : 1.05, 1.0);
@@ -442,7 +448,13 @@ export function person(x, z, o = {}) {
     const gm = mat(0x0a0a0a, { metal: 0.8, rough: 0.3 });
     for (const s of [-1, 1]) { const r = new THREE.Mesh(new THREE.TorusGeometry(0.019, 0.0022, 6, 14), gm); r.position.set(s * 0.037, 0.098, 0.11); head.add(r); }
     cube(0.025, 0.004, 0.004, gm, 0, 0.1, 0.112, head);
-    if (o.glint) { const lm = new THREE.MeshBasicMaterial({ color: 0xcfe0ff }); for (const s of [-1, 1]) { const l = new THREE.Mesh(new THREE.CircleGeometry(0.017, 10), lm); l.position.set(s * 0.037, 0.098, 0.112); l.userData.keep = true; head.add(l); } }
+    if (o.blackLenses) {
+      const lens = mat(0x020202, { rough: 0.08, metal: 0.9 }), shine = new THREE.MeshBasicMaterial({ color: 0xf0f4ff });
+      for (const s of [-1, 1]) {
+        const l = new THREE.Mesh(new THREE.CircleGeometry(0.018, 12), lens); l.position.set(s * 0.037, 0.098, 0.111); head.add(l);
+        const sp = new THREE.Mesh(new THREE.CircleGeometry(0.0045, 8), shine); sp.position.set(s * 0.037 + 0.007, 0.105, 0.1125); sp.userData.keep = true; head.add(sp);
+      }
+    } else if (o.glint) { const lm = new THREE.MeshBasicMaterial({ color: 0xcfe0ff }); for (const s of [-1, 1]) { const l = new THREE.Mesh(new THREE.CircleGeometry(0.017, 10), lm); l.position.set(s * 0.037, 0.098, 0.112); l.userData.keep = true; head.add(l); } }
   }
 
   if (lie) { g.rotation.x = Math.PI / 2; g.position.y = 0.13 * sc; g.position.z = -0.92 * sc; }

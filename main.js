@@ -122,7 +122,7 @@ const _box = new THREE.Box3(), _sph = new THREE.Sphere();
 function registerCulling() {
   G.cull.length = 0;
   for (const o of scene.children) {
-    if (o.isLight || o === camera || o === G.rain || o.isSprite) continue;
+    if (o.isLight || o === camera || o === G.rain || o.isSprite || o.userData.noCull) continue;
     _box.setFromObject(o);
     if (_box.isEmpty()) continue;
     _box.getBoundingSphere(_sph);
@@ -248,6 +248,17 @@ const api = {
   refresh: () => refresh(),
   flash: (on) => { G.flashOn = on; if (!on) flash.intensity = 0; sound.click(); },
   ambience: (o) => { G.ambience = o; },
+  // chase / scripted-scene helpers
+  get player() { return G.pos; },
+  get touch() { return TOUCH.on; },
+  setPlayer(x, z, yaw, pitch = 0) { G.pos.set(x, 0, z); G.yaw = yaw; G.pitch = pitch; },
+  playing: () => state === 'play' && G && !G.ui && !G.cut && !G.frozen,
+  collide: (p, r) => collide(p, r),
+  blackout(text, ms, cb) {
+    G.frozen = true; for (const k in keys) keys[k] = false;
+    const el = $('blackout'); el.textContent = text; el.classList.add('on');
+    setTimeout(() => { if (cb) cb(); el.classList.remove('on'); if (G) G.frozen = false; }, ms);
+  },
 };
 
 function refresh() {
@@ -639,7 +650,7 @@ function updateTouchAct(best) {
 
 // ---------- per-frame ----------
 const R = 0.38;
-function collide(p) {
+function collide(p, R = 0.38) {
   for (const c of G.colliders) {
     const cx = Math.max(c.x0, Math.min(p.x, c.x1)), cz = Math.max(c.z0, Math.min(p.z, c.z1));
     const dx = p.x - cx, dz = p.z - cz, d2 = dx * dx + dz * dz;
@@ -654,7 +665,7 @@ function collide(p) {
 
 const fwd = new THREE.Vector3(), tmp = new THREE.Vector3();
 function updatePlayer(dt) {
-  const canMove = active() && !G.ui;
+  const canMove = active() && !G.ui && !G.frozen;
   let mx = 0, mz = 0;
   if (canMove) {
     if (keys.KeyW || keys.ArrowUp) mz += 1; if (keys.KeyS || keys.ArrowDown) mz -= 1;

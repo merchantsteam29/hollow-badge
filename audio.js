@@ -64,6 +64,11 @@ export class Sound {
   page() { this.burst(0.18, 2400, 0.08, 'bandpass'); }
   clue() { this.tone(392, 1.2, 0.08); this.tone(523, 1.6, 0.06, 'sine', 0.12); this.tone(311, 2.2, 0.05, 'triangle', 0.25); }
   door() { this.tone(70, 1.4, 0.2, 'sawtooth'); this.burst(1.2, 400, 0.12, 'bandpass'); }
+  chew() {
+    this.burst(0.09 + Math.random() * 0.06, 380 + Math.random() * 320, 0.24);
+    if (Math.random() < 0.6) setTimeout(() => this.burst(0.04, 1400 + Math.random() * 900, 0.07, 'bandpass'), 40 + Math.random() * 60);
+  }
+  growl() { this.tone(58 + Math.random() * 8, 0.9, 0.12, 'sawtooth'); this.burst(0.7, 260, 0.08); }
   tap() { this.burst(0.05, 1800, 0.35, 'bandpass'); }
   heartbeat(n = 6, gap = 0.85) {
     if (!this.ctx) return;

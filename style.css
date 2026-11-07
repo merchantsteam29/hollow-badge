@@ -12,6 +12,8 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); c
 #grain { position: fixed; inset: -50%; pointer-events: none; z-index: 2; opacity: 0.5; animation: grain 0.6s steps(6) infinite; }
 @keyframes grain { 0%{transform:translate(0,0)} 20%{transform:translate(-3%,2%)} 40%{transform:translate(2%,-3%)} 60%{transform:translate(-2%,-1%)} 80%{transform:translate(3%,3%)} 100%{transform:translate(0,0)} }
 
+#blackout { position: fixed; inset: 0; z-index: 35; background: #000; display: flex; align-items: center; justify-content: center; font-family: 'Special Elite', monospace; font-size: clamp(22px, 3vw, 34px); color: #c0262c; letter-spacing: 0.08em; opacity: 0; pointer-events: none; transition: opacity 0.2s; }
+#blackout.on { opacity: 1; }
 #letterbox i { position: fixed; left: 0; right: 0; height: 0; background: #000; z-index: 5; transition: height 0.8s ease; }
 #letterbox i:first-child { top: 0; } #letterbox i:last-child { bottom: 0; }
 #letterbox.on i { height: 11vh; }

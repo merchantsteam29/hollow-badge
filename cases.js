@@ -405,14 +405,15 @@ const WING = {
     if (!h('vial')) return 'Search the reeds on the riverbank.';
     if (!h('scar')) return 'Walk the third scene: the church steps at the south end of Main.';
     if (!h('log')) return 'Everything points at the County Morgue. Find a way inside.';
-    if (api.flags.scare && !api.flags.sawIV) return 'Get back to your car.';
-    return 'Return to your car. Name the Tallyman.';
+    if (!api.flags.arrested) return 'RUN. Get to Sergeant Holt at your car.';
+    return 'He is in cuffs. Use the case board in your car and charge the Tallyman.';
   },
   endings: {
     good: {
       title: 'CASE CLOSED',
       text: [
-        'They take Elias Crane in the morgue at dawn. He does not run. He is sitting by the drawers with his cane across his knees.',
+        'At dawn, in the back of Holt\'s car, the man in cuffs finally gives his name. Dr. Elias Crane, county coroner.',
+        'The report on what they found on his table in the morgue is sealed. Holt will not talk about it.',
         'In his desk: the surgical team roster from 1999. Seven names. Three crossed out.',
         'The fourth name is not a doctor. It is the detective who closed Annie Crane\'s case in a week. Your predecessor, long retired.',
         'Under it, in fresh ink: your name.',
@@ -423,7 +424,8 @@ const WING = {
     bad: (s) => ({
       title: 'THE COUNT GOES ON',
       text: [
-        `You charge ${s.name}. The papers print your photo under the word CAUGHT.`,
+        `You charge ${s.name}. At dawn Holt has nothing to hold the man in the long coat on. He walks out of the station smiling.`,
+        'The papers print your photo under the word CAUGHT.',
         'On the ninth night, Sergeant Holt borrows your car.',
         'They find him at 2:13 AM in the driver\'s seat. Tally mark IV is carved into the door.',
         'It was meant for you.',
@@ -463,7 +465,42 @@ const WING = {
     row(11.75, -5.5, 12.5, 9, '-x');
     row(25.25, -4, 13.5, 12, '-z');
     row(11.75, -33, 12.5, 26, '-x');
-    const morgue = row(11.75, -53.5, 12.5, 14, '-x', { color: 0x2a2c2e, lit: 0.05, h: 7, blind: true });
+    // ---------- County Morgue: built by hand so the front door opens onto a lit room ----------
+    const MX0 = 5.5, MX1 = 18, MZ0 = -60.5, MZ1 = -46.5, MH = 7, mcol = 0x2a2c2e;
+    const RX1 = 11.5, RZ0 = -56.5, RZ1 = -50.5, RH = 3.2, DZ0 = -54.15, DZ1 = -52.85, DH = 2.3;
+    B.box(MX1 - RX1, MH, MZ1 - MZ0, mcol, (RX1 + MX1) / 2, 0, (MZ0 + MZ1) / 2);
+    B.box(RX1 - MX0, MH, RZ0 - MZ0, mcol, (MX0 + RX1) / 2, 0, (MZ0 + RZ0) / 2);
+    B.box(RX1 - MX0, MH, MZ1 - RZ1, mcol, (MX0 + RX1) / 2, 0, (RZ1 + MZ1) / 2);
+    B.box(RX1 - MX0, MH - RH, RZ1 - RZ0, mcol, (MX0 + RX1) / 2, RH, (RZ0 + RZ1) / 2);
+    B.box(0.3, RH, DZ0 - RZ0, mcol, MX0 + 0.15, 0, (RZ0 + DZ0) / 2);
+    B.box(0.3, RH, RZ1 - DZ1, mcol, MX0 + 0.15, 0, (DZ1 + RZ1) / 2);
+    B.box(0.3, RH - DH, DZ1 - DZ0, mcol, MX0 + 0.15, DH, (DZ0 + DZ1) / 2);
+    B.box(MX1 - MX0 + 0.3, 0.4, MZ1 - MZ0 + 0.3, 0x1b1715, (MX0 + MX1) / 2, MH, (MZ0 + MZ1) / 2, { shadow: false });
+    for (const wz of [-58.8, -48.2]) for (const wy of [1.6, 4.3]) { const wm = new THREE.Mesh(new THREE.PlaneGeometry(1.0, 1.3), B.mat(0x0b0e13, { rough: 0.25, metal: 0.6 })); wm.position.set(MX0 - 0.02, wy, wz); wm.rotation.y = -Math.PI / 2; api.scene.add(wm); }
+    B.collider(MX0, MZ0, MX1, MZ1);
+    // the room (inside faces only, so it can be seen through the doorway)
+    const room = new THREE.Mesh(new THREE.BoxGeometry(RX1 - MX0 - 0.3, RH, RZ1 - RZ0), new THREE.MeshStandardMaterial({ color: 0x4a504c, roughness: 0.5, side: THREE.BackSide }));
+    room.position.set((MX0 + 0.3 + RX1) / 2, RH / 2, (RZ0 + RZ1) / 2); room.receiveShadow = true; room.userData.dynamic = true; api.scene.add(room);
+    B.decal((g, w, h) => { g.fillStyle = '#6c706a'; g.fillRect(0, 0, w, h); g.strokeStyle = '#2a2e2c'; g.lineWidth = 6; for (let i = 0; i <= 3; i++) for (let j = 0; j <= 4; j++) { g.strokeRect(i * w / 3 + 6, j * h / 4 + 6, w / 3 - 12, h / 4 - 12); g.fillStyle = '#3a3e3a'; g.fillRect(i * w / 3 + w / 6 - 18, j * h / 4 + h / 8 - 4, 36, 8); g.fillStyle = '#6c706a'; } }, 3.6, 2.6, RX1 - 0.02, 1.35, (RZ0 + RZ1) / 2, { ry: -Math.PI / 2, res: 256 });
+    B.box(2.0, 0.07, 0.85, 0x8a8e90, 9.6, 0.82, -53.5, { metal: 0.8, rough: 0.3 });
+    for (const [lx, lz] of [[8.75, -53.85], [10.45, -53.85], [8.75, -53.15], [10.45, -53.15]]) B.box(0.05, 0.82, 0.05, 0x6a6e70, lx, 0, lz, { metal: 0.8 });
+    const sheet = B.box(1.7, 0.2, 0.55, 0x9c9a94, 9.75, 0.89, -53.5, { rough: 1 }); sheet.scale.set(1, 1, 1);
+    B.box(0.5, 0.75, 0.5, 0x3a3226, 6.6, 0, -55.8); // desk by the door
+    B.box(0.32, 0.02, 0.24, 0xd8d2c0, 6.6, 0.76, -55.85, { rough: 1 }); // clipboard (the log)
+    B.box(0.28, 0.12, 0.18, 0x6a5a40, 6.55, 0.76, -55.6, { rough: 1 });  // shoebox of watches
+    const tubeMat = new THREE.MeshBasicMaterial({ color: 0x1a1e20 });
+    const tube = new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.05, 0.12), tubeMat); tube.position.set(8.9, RH - 0.04, -53.5); tube.userData.dynamic = true; api.scene.add(tube);
+    const tubeLight = B.light(8.9, RH - 0.3, -53.5, 0xd8ecff, 0, 8);
+    // front door (opens inward), IV freshly carved into it
+    const mdoor = new THREE.Group(); mdoor.position.set(MX0, 0, DZ1); api.scene.add(mdoor);
+    B.box(0.08, DH - 0.02, 1.28, 0x1c1e20, -0.04, 0, -0.65, { parent: mdoor, metal: 0.4, rough: 0.6 });
+    B.box(0.04, 0.04, 0.14, 0x8a8a8a, -0.1, 1.05, -1.12, { parent: mdoor, metal: 0.9, rough: 0.3 });
+    B.decal((g, w, h) => {
+      g.strokeStyle = 'rgba(225,220,205,0.95)'; g.lineWidth = 9; g.lineCap = 'round'; g.beginPath();
+      g.moveTo(w * 0.22, h * 0.12); g.lineTo(w * 0.24, h * 0.88);
+      g.moveTo(w * 0.42, h * 0.12); g.lineTo(w * 0.6, h * 0.88); g.lineTo(w * 0.8, h * 0.1); g.stroke();
+      g.strokeStyle = 'rgba(225,220,205,0.35)'; g.lineWidth = 2; for (let i = 0; i < 14; i++) { g.beginPath(); const x = w * (0.2 + Math.random() * 0.6), y = h * (0.1 + Math.random() * 0.8); g.moveTo(x, y); g.lineTo(x + (Math.random() - 0.5) * 20, y + (Math.random() - 0.5) * 20); g.stroke(); }
+    }, 0.7, 0.55, -0.09, 1.5, -0.65, { ry: -Math.PI / 2, res: 256, parent: mdoor });
     row(25.25, -28, 13.5, 16, '+z');
     // church
     B.box(18, 10, 12, 0x232220, 0, 0, -72, { collide: true });
@@ -526,8 +563,6 @@ const WING = {
     B.car(2.2, 23, { police: true, ry: 0 });
     B.car(-3.2, 6, { color: 0x1a1a1a, ry: Math.PI });
     B.car(3.4, -36, { color: 0x2a1c18, ry: 0 });
-    const ivDecal = B.decal((g, w, h) => { g.strokeStyle = 'rgba(220,220,220,0.95)'; g.lineWidth = 6; g.beginPath(); g.moveTo(w * 0.2, h * 0.15); g.lineTo(w * 0.2, h * 0.85); g.moveTo(w * 0.42, h * 0.15); g.lineTo(w * 0.6, h * 0.85); g.lineTo(w * 0.8, h * 0.15); g.stroke(); }, 0.6, 0.4, 2.2 - 0.97, 0.75, 23.4, { ry: -Math.PI / 2, res: 128 });
-    ivDecal.visible = false; ivDecal.userData.dynamic = true;
     // Sergeant Holt: heavy-set, uniform, cap, flashlight
     B.person(4.6, 21.5, { build: 'heavy', coat: 0x161b2c, shirt: 0x1e2436, tie: 0x0a0c14, pants: 0x101320, hat: 'police', hatColor: 0x101320, badge: true, hair: 0x2a2018, beard: 'stubble', skin: 0x6a4a3a, arms: 'flashlight', ry: -Math.PI / 2 });
     // Mae: bartender, apron over a dark blouse, red hair up
@@ -539,23 +574,17 @@ const WING = {
     B.person(34.2, -25.3, { pose: 'sit', seatH: 0.46, coat: 0x2e2a1c, coatLen: 'long', shirt: 0x3a3428, pants: 0x22201a, hat: 'beanie', hatColor: 0x3a2418, hair: 0x4a4038, hairStyle: 'messy', beard: true, scarf: 0x3a3a30, skin: 0x6a5040, arms: 'fire', ry: B.faceTo(34.2, -25.3, 35.4, -24.5) });
     // Father Morrow: cassock, clerical collar, hands clasped
     B.person(-3.2, -63.6, { old: true, coat: 0x0c0c0e, coatLen: 'long', shirt: 0x0c0c0e, pants: 0x0c0c0e, collar: true, hair: 0xa8a8a8, hairStyle: 'bald', glasses: true, skin: 0x9a8070, arms: 'clasp', ry: 0 });
-    // the stranger at the end of the street: tall, long coat, fedora, cane, glasses that catch the light
-    const stranger = B.person(-3.4, -40.9, { coat: 0x2a2a32, coatLen: 'long', shirt: 0x6a6a70, tie: 0x0a0a0a, pants: 0x18181c, hat: 'fedora', hatColor: 0x060606, cane: true, glasses: true, glint: true, hair: 0x4a4a4a, skin: 0x7a6a60, ry: Math.PI / 2, scale: 1.08, idle: false, collide: false });
-    stranger.visible = false;
+    // the man in the morgue: too human. Grey skin, black lenses that catch the light, a smile too wide for his face
+    const stranger = B.person(8.3, -53.8, { coat: 0x22222a, coatLen: 'long', shirt: 0x5a5a60, tie: 0x0a0a0a, pants: 0x16161a, hat: 'fedora', hatColor: 0x060606, glasses: true, blackLenses: true, grin: true, hair: 0x3a3a3a, skin: 0xb4b0a8, arms: 'eat', ry: Math.PI / 2 + 0.5, scale: 1.08, idle: false, look: false, collide: false });
+    stranger.userData.noCull = true;
+    stranger.userData.spine.rotation.x = 0.5;
+    // whatever he is eating: dark, wet, never shown clearly
+    const lump = new THREE.Mesh(new THREE.SphereGeometry(0.06, 8, 6), B.mat(0x240909, { rough: 0.15, metal: 0.1 }));
+    lump.scale.set(1.3, 0.8, 1); lump.position.set(0, 0.52, 0.25); stranger.userData.spine.add(lump);
 
     // ---- interactions ----
     api.interact({ pos: [4.6, 1.5, 21.5], label: 'Talk to Sergeant Holt', use: () => api.talk(W_HOLT) });
-    api.interact({
-      pos: [2.2, 1.2, 23], radius: 3, label: () => (api.flags.scare && !api.flags.sawIV ? 'Look at your car' : 'Case board (car)'),
-      use: () => {
-        if (api.flags.scare && !api.flags.sawIV) {
-          api.flags.sawIV = true; api.sound.heartbeat(4);
-          api.inspect({ title: 'Your car', text: ['Carved into the driver\'s door, fresh, the paint curling off the metal:', 'IV', 'The box in the morgue had a watch tagged IV. He walked past you to do this. He knows exactly who you are.'], onClose: () => api.refresh() });
-          return;
-        }
-        api.board();
-      },
-    });
+    api.interact({ pos: [2.2, 1.2, 23], radius: 3, label: 'Case board (car)', cond: () => !api.flags.chasing, use: () => api.board() });
     api.interact({ pos: [4.8, 1.5, 16.5], label: 'Talk to Mae (bartender)', use: () => api.talk(W_MAE) });
     api.interact({ pos: [4.8, 1.5, 6.4], label: 'Talk to Abel Finch', use: () => api.talk(W_FINCH) });
     api.interact({ pos: [34.2, 1.2, -25.3], label: 'Talk to Jory', use: () => api.talk(W_JORY) });
@@ -565,45 +594,113 @@ const WING = {
     api.interact({ pos: [37.6, 0.4, -31], radius: 2.6, glint: true, label: 'Search the reeds', cond: () => !api.has('vial'), use: () => api.inspect({ title: 'In the reeds', text: ['Something small and glass, pushed into the mud where two people stood.', 'A vial cap with a pharmacy seal: CHLORAL HYDRATE — FOR INSTITUTIONAL USE ONLY.', 'A sedative so old most doctors have never prescribed it. Hospitals and morgues still keep it locked up.'], onClose: () => api.give('vial') }) });
     api.interact({ pos: [2.2, 0.3, -64.6], radius: 2.2, glint: true, label: 'Examine the steps', cond: () => !api.has('tally3'), use: () => api.inspect({ title: 'Church steps', text: ['Ruth Abara was found here two nights ago, sitting up against the door like she was waiting for morning Mass.', 'Three strokes on the bottom step. III.', 'And under them, scratched small, like a signature: 2:13.'], onClose: () => api.give('tally3') }) });
     api.interact({
-      pos: [5.6, 1.5, -53.5], radius: 2.5, label: () => (api.has('log') ? 'County Morgue' : 'Enter the County Morgue'),
+      pos: [5.0, 1.5, -53.5], radius: 2.6, cond: () => !api.flags.chasing,
+      label: () => (api.has('log') ? 'County Morgue' : 'Open the morgue door'),
       use: () => {
-        if (api.has('log')) { api.inspect({ title: 'County Morgue', text: ['You are not going back in there tonight.'] }); return; }
+        if (api.has('log')) { api.inspect({ title: 'County Morgue', text: ['The door hangs open. The light inside has gone out.', 'You are not going back in there tonight.'] }); return; }
         if (!(api.has('vial') && (api.has('chemical') || api.has('limp') || api.has('crane_did')))) {
-          api.inspect({ title: 'County Morgue', text: ['Locked. No lights. No night attendant tonight.', 'You have no warrant and no reason yet. Find out what ties the victims together first.'] });
+          api.inspect({ title: 'County Morgue', text: ['Locked. No lights. No night attendant tonight.', 'Something has been carved into the door: IV. The cuts are fresh.', 'You have no warrant and no reason yet. Find out what ties the victims together first.'] });
           return;
         }
-        api.sound.door();
-        api.inspect({
-          title: "The coroner's office",
-          text: ['The side door is propped with a folded newspaper. Inside it is colder than the street.', 'In the drug cabinet: a clipboard log. Chloral hydrate, signed out three times this month. The dates match every killing.', 'Every line is initialled the same way. E.C.'],
-          onClose: () => {
-            api.give('log');
-            api.inspect({
-              title: 'Bottom drawer',
-              text: ['A shoebox. Nine cheap pocket watches, wrapped in tissue like something precious. Every one stopped at 2:13.', 'One has a paper tag tied to the crown.', 'IV.'],
-              onClose: () => { api.give('watches'); scare(); },
-            });
-          },
-        });
+        morgueScene();
       },
     });
 
-    function scare() {
-      api.flags.scare = true;
-      const keep = api.lamps.find((l) => l.pos.z < -38 && l.pos.z > -42);
-      api.sound.heartbeat(10, 0.7);
-      api.lamps.forEach((l, i) => setTimeout(() => { if (l !== keep) B.setLamp(l, false); }, 150 * i));
-      stranger.visible = true; B.setLamp(keep, true, 1.7);
-      let tap = setInterval(() => api.sound.tap(), 700);
+    // ---------- the morgue: he is inside, eating ----------
+    let chew = null, tubeOn = false, headTurn = 0, doorOpen = 0;
+    const sSpine = stranger.userData.spine, sHead = stranger.userData.head, sInner = stranger.userData.inner;
+    api.anims.push((dt) => {
+      if (doorOpen > 0 && doorOpen < 1) { doorOpen = Math.min(1, doorOpen + dt * 0.6); mdoor.rotation.y = -1.65 * (1 - Math.pow(1 - doorOpen, 3)); }
+      if (chew) { const t = performance.now() / 1000; sHead.rotation.x = -0.12 + Math.sin(t * 13) * 0.07; sSpine.rotation.x = 0.5 + Math.sin(t * 6.5) * 0.035; lump.rotation.y += dt * 0.6; }
+      if (tubeOn) { const k = Math.random() < 0.06 ? 0.1 : 0.85 + Math.random() * 0.15; tubeLight.cur = 7 * k; tubeMat.color.setRGB(0.85 * k, 0.92 * k, k); }
+      if (headTurn > 0 && headTurn < 1) {
+        headTurn = Math.min(1, headTurn + dt * 0.55);
+        const e = headTurn * headTurn * (3 - 2 * headTurn);
+        sHead.rotation.y = e * 2.85; sHead.rotation.z = e * 0.45; sHead.rotation.x = -0.12 - e * 0.1;
+      }
+    });
+    function morgueScene() {
+      api.flags.morgue = true;
+      api.flash(true);
       api.cutscene([
-        { pos: [2.6, 1.65, -51.5], look: [-3.4, 1.2, -40.9], dur: 2.4, text: 'The street lights are going out. One by one.', onStart: () => api.flash(false) },
-        { hold: 3, text: 'Someone is standing under the last one.' },
-        { hold: 2.5, text: 'Tap. Tap. Tap.' },
-        { hold: 1.6, text: '', onStart: () => { B.setLamp(keep, false); stranger.visible = false; clearInterval(tap); api.sound.stinger(); } },
-        { hold: 2, text: 'Gone.', onStart: () => api.flash(true) },
+        { pos: [4.0, 1.6, -53.0], look: [MX0 - 0.05, 1.45, -53.5], dur: 2.2, text: 'IV. Carved into the door. Fresh.' },
+        { hold: 2.2, text: 'It isn\'t locked.', onStart: () => { api.sound.door(); doorOpen = 0.001; } },
+        { pos: [5.1, 1.62, -53.4], look: [8.4, 1.15, -53.5], dur: 2.8, text: 'On the desk by the door: the drug log, and a shoebox of stopped watches.',
+          onStart: () => { tubeOn = true; chew = setInterval(() => { if (Math.random() < 0.75) api.sound.chew(); }, 260); } },
+        { hold: 3.2, text: 'Someone is in here.' },
+        { pos: [6.0, 1.55, -53.32], look: [8.25, 1.3, -53.5], dur: 3.2, text: 'He\'s eating something.' },
+        { hold: 2.2, text: '', onStart: () => { clearInterval(chew); chew = null; } },
+        { hold: 3.2, text: '', onStart: () => { headTurn = 0.001; api.sound.growl(); setTimeout(() => api.sound.stinger(), 900); } },
+        { hold: 1.8, text: 'He smiles at you.' },
+        { pos: [4.6, 1.65, -53.5], look: [4.6, 1.6, -40], dur: 0.7, text: 'RUN.', onStart: () => api.sound.heartbeat(3, 0.4) },
       ], () => {
-        api.lamps.forEach((l) => B.setLamp(l, true, 0.55));
-        ivDecal.visible = true;
+        api.give('log'); api.give('watches');
+        startChase(true);
+      });
+    }
+
+    // ---------- the chase: get to Holt ----------
+    const HOLT = new THREE.Vector3(4.6, 0, 21.5);
+    const chase = { on: false, t: 0, step: 0, beat: 0 };
+    const tmpV = new THREE.Vector3();
+    function placeStranger(x, z, ry) { stranger.position.set(x, 0, z); stranger.rotation.y = ry; }
+    function startChase(first) {
+      api.flags.chasing = true;
+      api.setPlayer(4.4, -53.5, Math.PI, 0);
+      placeStranger(6.6, -53.5, -Math.PI / 2);
+      lump.visible = false;
+      sSpine.rotation.set(0.32, 0, 0); sHead.rotation.set(-0.1, 0, 0.3);
+      chase.on = true; chase.t = 0;
+      tubeOn = false; tubeLight.cur = 0; tubeMat.color.setRGB(0.1, 0.1, 0.1);
+      api.refresh();
+      if (first) api.toast(api.touch ? 'Push the stick all the way to RUN' : 'Hold SHIFT to RUN');
+    }
+    api.anims.push((dt) => {
+      if (!chase.on || !api.playing()) return;
+      chase.t += dt;
+      const p = api.player, s = stranger.position;
+      // lamps stutter while he is coming
+      if (Math.random() < 0.05) { const l = api.lamps[Math.floor(Math.random() * api.lamps.length)]; B.setLamp(l, false); setTimeout(() => B.setLamp(l, true), 120 + Math.random() * 300); }
+      chase.beat -= dt; if (chase.beat <= 0) { chase.beat = 0.55; api.sound.heartbeat(1); }
+      if (p.distanceTo(HOLT) < 6.5) { arrest(); return; }
+      if (chase.t < 0.9) return; // a heartbeat's head start
+      tmpV.set(p.x - s.x, 0, p.z - s.z);
+      const d = tmpV.length();
+      if (d < 1.0) { caught(); return; }
+      const speed = d > 14 ? 6.2 : 4.75; // faster than walking, a little slower than running
+      tmpV.multiplyScalar(Math.min(d, speed * dt) / d);
+      s.add(tmpV);
+      if (s.x < 5.2) api.collide(s, 0.35);
+      stranger.rotation.y = Math.atan2(p.x - s.x, p.z - s.z);
+      // a lurching, wrong gait: no legs moving, just a jerking bob and sway
+      sInner.position.y = Math.abs(Math.sin(chase.t * 8.5)) * 0.09;
+      sSpine.rotation.z = Math.sin(chase.t * 4.25) * 0.16;
+      sHead.rotation.z = 0.3 + Math.sin(chase.t * 13) * 0.08;
+      chase.step -= dt; if (chase.step <= 0) { chase.step = 0.24; api.sound.tap(); if (Math.random() < 0.15) api.sound.growl(); }
+    });
+    function caught() {
+      chase.on = false;
+      api.sound.stinger();
+      api.blackout('He caught you.', 2300, () => startChase(false));
+    }
+    function arrest() {
+      chase.on = false;
+      const p = api.player;
+      // he stops in the road a few metres behind you, in Holt's torchlight
+      const sx = 1.2, sz = Math.min(p.z - 3.2, HOLT.z - 7.5);
+      placeStranger(sx, sz, Math.atan2(HOLT.x - sx, HOLT.z - sz));
+      sInner.position.y = 0; sSpine.rotation.z = 0; sHead.rotation.set(-0.1, 0, 0.35);
+      api.lamps.forEach((l) => B.setLamp(l, true));
+      api.setPlayer(Math.max(-3, Math.min(3.8, p.x)), Math.max(p.z, sz + 3.2), Math.PI);
+      api.cutscene([
+        { pos: [HOLT.x - 1.0, 1.75, HOLT.z - 0.9], look: [sx, 1.55, sz], dur: 0.9, text: 'HOLT: Police! On the ground! NOW!', onStart: () => api.sound.click() },
+        { hold: 2.6, text: 'He stops. He tilts his head at you, and smiles.' },
+        { hold: 3.2, text: 'Then he kneels in the road, laughing, while Holt cuffs him.', onStart: () => { sInner.position.y = -0.4; sSpine.rotation.x = 0.25; sHead.rotation.set(0.15, 0, 0.35); api.sound.growl(); } },
+        { pos: [sx - 2.0, 2.1, sz - 3.4], look: [HOLT.x - 0.9, 1.0, HOLT.z - 1.5], dur: 1.8, text: "HOLT: He won't give a name. I can hold him till morning." },
+        { hold: 3.6, text: 'HOLT: Put it together on the board, Detective. Charge the right person, or he walks.' },
+      ], () => {
+        api.flags.chasing = false; api.flags.arrested = true;
+        placeStranger(6.2, 23.6, -Math.PI / 2);
         api.refresh();
       });
     }
