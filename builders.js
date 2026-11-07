@@ -1,7 +1,8 @@
 // Low-poly scene builders shared by both cases.
 import * as THREE from 'three';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
-let C = null; // { scene, colliders, lamps, anims }
+let C = null; // { scene, colliders, lamps, lights, anims }
 export function init(ctx) { C = ctx; }
 
 const mats = new Map();
@@ -145,6 +146,14 @@ export function house(x, z, o = {}) {
   };
 }
 
+// A light source is plain data; main.js assigns a small fixed pool of real PointLights
+// to the nearest sources each frame, so the shader cost never grows with the map.
+export function light(x, y, z, color, intensity, dist = 12) {
+  const rec = { pos: new THREE.Vector3(x, y, z), color: new THREE.Color(color), base: intensity, cur: intensity, dist };
+  C.lights.push(rec);
+  return rec;
+}
+
 export function lamp(x, z, o = {}) {
   const color = o.color ?? 0xffb466;
   cyl(0.07, 0.1, 4.6, 0x111214, x, 0, z, { metal: 0.6, rough: 0.5 });
@@ -152,9 +161,8 @@ export function lamp(x, z, o = {}) {
   const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.16, 10, 8), bulbMat);
   bulb.position.set(x, 4.55, z); C.scene.add(bulb);
   box(0.5, 0.12, 0.5, 0x111214, x, 4.7, z, { shadow: false });
-  const light = new THREE.PointLight(color, o.intensity ?? 30, o.dist ?? 19, 1.5);
-  light.position.set(x, 4.3, z); C.scene.add(light);
-  const rec = { light, bulbMat, base: light.intensity, flicker: !!o.flicker, on: true };
+  const rec = light(x, 4.3, z, color, o.intensity ?? 30, o.dist ?? 19);
+  Object.assign(rec, { bulbMat, flicker: !!o.flicker, on: true });
   C.lamps.push(rec);
   if (o.flicker) {
     let t = 0, next = 1 + Math.random() * 3;
@@ -163,7 +171,7 @@ export function lamp(x, z, o = {}) {
       t += dt;
       if (t > next) { t = 0; next = 0.05 + Math.random() * (Math.random() < 0.15 ? 2.5 : 0.25); }
       const k = Math.random() < 0.12 ? 0.08 : 0.85 + Math.random() * 0.15;
-      light.intensity = rec.base * k; bulbMat.emissiveIntensity = 2.2 * k;
+      rec.cur = rec.base * k; bulbMat.emissiveIntensity = 2.2 * k;
     });
   }
   return rec;
@@ -171,7 +179,7 @@ export function lamp(x, z, o = {}) {
 export function setLamp(rec, on, k = 1) {
   if (!rec) return;
   rec.on = on;
-  rec.light.intensity = on ? rec.base * k : 0;
+  rec.cur = on ? rec.base * k : 0;
   rec.bulbMat.emissiveIntensity = on ? 2.2 * k : 0;
 }
 
@@ -267,14 +275,14 @@ export function car(x, z, o = {}) {
     const blue = new THREE.MeshStandardMaterial({ color: 0, emissive: 0x1840ff, emissiveIntensity: 0 });
     box(0.6, 0.14, 0.25, 0, -0.35, 1.32, -0.2, { parent: grp, material: red, shadow: false });
     box(0.6, 0.14, 0.25, 0, 0.35, 1.32, -0.2, { parent: grp, material: blue, shadow: false });
-    const pl = new THREE.PointLight(0xff1020, 0, 14, 1.6); pl.position.set(0, 1.9, -0.2); grp.add(pl);
+    const pl = light(x, 1.9, z - 0.2 * Math.cos(ry), 0xff1020, 0, 14);
     let t = 0;
     C.anims.push((dt) => {
       t += dt;
       const ph = Math.floor(t * 3) % 2, strobe = (t * 12) % 1 < 0.6 ? 1 : 0.3;
       red.emissiveIntensity = ph === 0 ? 3 * strobe : 0.1;
       blue.emissiveIntensity = ph === 1 ? 3 * strobe : 0.1;
-      pl.color.setHex(ph === 0 ? 0xff1020 : 0x2050ff); pl.intensity = 9 * strobe;
+      pl.color.setHex(ph === 0 ? 0xff1020 : 0x2050ff); pl.cur = 9 * strobe;
     });
   }
   return grp;
@@ -317,4 +325,36 @@ export function marker(n, x, z) {
   const m = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.22, 3), mat(0xd8b400, { emissive: 0x2a2200 }));
   m.position.set(x, 0.11, z); C.scene.add(m);
   return m;
+}
+
+// Merge every static top-level mesh that shares a material into one mesh.
+// Cuts hundreds of draw calls (each window, fence post, tape strip...) down to a few dozen.
+export function staticBatch(scene) {
+  const groups = new Map();
+  for (const o of scene.children) {
+    if (!o.isMesh || o.isInstancedMesh || o.userData.dynamic || o.material.map) continue;
+    const k = o.material.uuid + (o.castShadow ? '|s' : '|n');
+    if (!groups.has(k)) groups.set(k, []);
+    groups.get(k).push(o);
+  }
+  let removed = 0;
+  for (const list of groups.values()) {
+    if (list.length < 2) continue;
+    const geos = list.map((o) => {
+      o.updateMatrixWorld(true);
+      const g = o.geometry.index ? o.geometry.toNonIndexed() : o.geometry.clone();
+      for (const name of Object.keys(g.attributes)) if (!['position', 'normal', 'uv'].includes(name)) g.deleteAttribute(name);
+      g.applyMatrix4(o.matrixWorld);
+      return g;
+    });
+    const merged = mergeGeometries(geos, false);
+    geos.forEach((g) => g.dispose());
+    if (!merged) continue;
+    const m = new THREE.Mesh(merged, list[0].material);
+    m.castShadow = list[0].castShadow; m.receiveShadow = true; m.renderOrder = list[0].renderOrder;
+    for (const o of list) { scene.remove(o); o.geometry.dispose(); }
+    scene.add(m);
+    removed += list.length - 1;
+  }
+  return removed;
 }

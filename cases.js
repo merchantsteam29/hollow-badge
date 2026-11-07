@@ -122,7 +122,7 @@ const CMARY = {
     B.box(1.6, 0.1, 8, 0x3a1414, 8.4, 3.2, -16, { shadow: false });
     B.signText('CMARY GROCERY', 5, 0.8, 8.95, 3.7, -16, -Math.PI / 2, { color: '#ff6a4a', shadow: true });
     B.signText('OPEN', 1, 0.4, 8.94, 2.2, -18, -Math.PI / 2, { color: '#ff3355', shadow: true, size: 0.7 });
-    const shopLight = new THREE.PointLight(0xffe2b0, 10, 10, 1.6); shopLight.position.set(7.5, 2.5, -16); api.scene.add(shopLight);
+    B.light(7.5, 2.5, -16, 0xffe2b0, 10, 10);
 
     // bus stop
     B.box(3, 0.08, 1.4, 0x1a1c1f, 6.8, 2.4, -4);
@@ -186,8 +186,9 @@ const CMARY = {
       B.decal((g, w, h) => { g.fillStyle = 'rgba(5,4,3,0.85)'; for (let y = 0; y < h; y += 10) g.fillRect(4, y, w - 8, 5); }, 0.35, 9, tx, 0.04, -44, { floor: true, res: 64 });
     }
     // ribbon
-    const rib = B.box(0.18, 0.04, 0.06, 0x8a0f12, -6.2, 1.35, -50.7, { emissive: 0x220000 });
-    B.box(0.04, 0.3, 0.04, 0x8a0f12, -6.2, 1.05, -50.7, { emissive: 0x220000 });
+    const rib = new THREE.Group(); api.scene.add(rib);
+    B.box(0.18, 0.04, 0.06, 0x8a0f12, -6.2, 1.35, -50.7, { emissive: 0x220000, parent: rib });
+    B.box(0.04, 0.3, 0.04, 0x8a0f12, -6.2, 1.05, -50.7, { emissive: 0x220000, parent: rib });
 
     // shed (hollow, door on +x)
     const sx = -11, sz = -62, W = 4, D = 3.6, H = 2.6, plank = 0x2a2018;
@@ -444,15 +445,15 @@ const WING = {
     for (let i = 0; i < 40; i++) { const rz = -36 + r() * 12, rx = 37 + r() * 1.4; B.box(0.04, 0.6 + r() * 0.8, 0.04, 0x1d2416, rx, 0, rz, { shadow: false }); }
     // barrel fire
     B.cyl(0.35, 0.35, 0.9, 0x2a1a10, 35.4, 0, -24.5, { metal: 0.5 });
-    const fire = new THREE.PointLight(0xff7a2a, 10, 10, 1.4); fire.position.set(35.4, 1.3, -24.5); api.scene.add(fire);
+    const fire = B.light(35.4, 1.3, -24.5, 0xff7a2a, 10, 10);
     const flame = new THREE.Mesh(new THREE.ConeGeometry(0.25, 0.6, 6), new THREE.MeshBasicMaterial({ color: 0xff8a3a }));
     flame.position.set(35.4, 1.2, -24.5); api.scene.add(flame);
-    api.anims.push(() => { const k = 0.75 + Math.random() * 0.35; fire.intensity = 10 * k; flame.scale.set(1, k * 1.2, 1); });
+    api.anims.push(() => { const k = 0.75 + Math.random() * 0.35; fire.cur = 10 * k; flame.scale.set(1, k * 1.2, 1); });
     B.collider(34.9, -25, 35.9, -24);
 
     // signs
     B.signText('FOX & LANTERN', 4.5, 0.8, 5.46, 4.6, 19, -Math.PI / 2, { color: '#ffb35a', shadow: true });
-    const barLight = new THREE.PointLight(0xffa860, 8, 9, 1.6); barLight.position.set(4.6, 2.6, 19); api.scene.add(barLight);
+    B.light(4.6, 2.6, 19, 0xffa860, 8, 9);
     B.signText('A. FINCH · WATCHES & CLOCKS', 5, 0.6, 5.46, 3.4, 5, -Math.PI / 2, { color: '#d8e0c8', size: 0.42, font: '"Special Elite", serif', weight: 400 });
     B.signText('COUNTY MORGUE', 4, 0.6, 5.46, 3.2, -53.5, -Math.PI / 2, { color: '#bcd6ff', size: 0.5 });
     // clock on Finch's shop
@@ -483,7 +484,7 @@ const WING = {
     B.car(-3.2, 6, { color: 0x1a1a1a, ry: Math.PI });
     B.car(3.4, -36, { color: 0x2a1c18, ry: 0 });
     const ivDecal = B.decal((g, w, h) => { g.strokeStyle = 'rgba(220,220,220,0.95)'; g.lineWidth = 6; g.beginPath(); g.moveTo(w * 0.2, h * 0.15); g.lineTo(w * 0.2, h * 0.85); g.moveTo(w * 0.42, h * 0.15); g.lineTo(w * 0.6, h * 0.85); g.lineTo(w * 0.8, h * 0.15); g.stroke(); }, 0.6, 0.4, 2.2 - 0.97, 0.75, 23.4, { ry: -Math.PI / 2, res: 128 });
-    ivDecal.visible = false;
+    ivDecal.visible = false; ivDecal.userData.dynamic = true;
     B.person(4.6, 21.5, { coat: 0x15192a, pants: 0x101320, cap: 0x101320, skin: 0x6a4a3a, ry: -Math.PI / 2 });
     B.person(4.8, 16.5, { coat: 0x2a1a18, pants: 0x18181c, hair: 0x6a2a1a, longHair: true, skin: 0x9a7a66, ry: -Math.PI / 2 });
     B.person(4.8, 6.4, { coat: 0x2a2a26, pants: 0x1a1a1a, hair: 0x9a9a9a, glasses: true, skin: 0x9a8070, ry: -Math.PI / 2 });
@@ -541,7 +542,7 @@ const WING = {
 
     function scare() {
       api.flags.scare = true;
-      const keep = api.lamps.find((l) => l.light.position.z < -38 && l.light.position.z > -42);
+      const keep = api.lamps.find((l) => l.pos.z < -38 && l.pos.z > -42);
       api.sound.heartbeat(10, 0.7);
       api.lamps.forEach((l, i) => setTimeout(() => { if (l !== keep) B.setLamp(l, false); }, 150 * i));
       stranger.visible = true; B.setLamp(keep, true, 1.7);

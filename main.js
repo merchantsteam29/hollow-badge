@@ -9,21 +9,31 @@ const sound = new Sound();
 
 // ---------- settings ----------
 const settings = (() => {
-  const d = { bright: 1.3, sens: 1.0, vol: 0.8 };
+  const d = { bright: 1.3, sens: 1.0, vol: 0.8, quality: 'medium', qualityManual: false };
   try { return { ...d, ...JSON.parse(localStorage.getItem('hb_settings') || '{}') }; } catch { return d; }
 })();
 const saveSettings = () => { try { localStorage.setItem('hb_settings', JSON.stringify(settings)); } catch {} };
 const results = (() => { try { return JSON.parse(localStorage.getItem('hb_results') || '{}'); } catch { return {}; } })();
 const saveResults = () => { try { localStorage.setItem('hb_results', JSON.stringify(results)); } catch {} };
 
+// ---------- graphics quality ----------
+// ratio: render resolution, shadow: flashlight shadow map size (0 = off), pool: real point lights, rain: drop count
+const QUALITY = {
+  low: { ratio: () => 0.7, shadow: 0, pool: 3, rain: 900, grain: false },
+  medium: { ratio: () => Math.min(devicePixelRatio, 1), shadow: 512, pool: 4, rain: 1700, grain: true },
+  high: { ratio: () => Math.min(devicePixelRatio, 1.5), shadow: 1024, pool: 6, rain: 2600, grain: true },
+};
+if (!QUALITY[settings.quality]) settings.quality = 'medium';
+const Q = () => QUALITY[settings.quality];
+
 // ---------- renderer ----------
-const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
-renderer.setPixelRatio(Math.min(devicePixelRatio, 1.75));
+const renderer = new THREE.WebGLRenderer({ antialias: settings.quality !== 'low', powerPreference: 'high-performance' });
+renderer.setPixelRatio(Q().ratio());
 renderer.setSize(innerWidth, innerHeight);
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = settings.bright;
-renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.shadowMap.enabled = Q().shadow > 0;
+renderer.shadowMap.type = THREE.PCFShadowMap;
 $('game').appendChild(renderer.domElement);
 const canvas = renderer.domElement;
 
@@ -34,7 +44,7 @@ addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; cam
 // flashlight on the camera
 const flash = new THREE.SpotLight(0xfff2dc, 160, 38, 0.52, 0.5, 1.3);
 flash.position.set(0.25, -0.2, 0.1);
-flash.castShadow = true; flash.shadow.mapSize.set(1024, 1024); flash.shadow.camera.near = 0.2; flash.shadow.bias = -0.0005;
+flash.castShadow = Q().shadow > 0; flash.shadow.mapSize.set(Q().shadow || 512, Q().shadow || 512); flash.shadow.camera.near = 0.2; flash.shadow.bias = -0.0005;
 const flashTarget = new THREE.Object3D(); flashTarget.position.set(0.1, -0.15, -6);
 camera.add(flash, flashTarget); flash.target = flashTarget;
 
@@ -44,6 +54,38 @@ const glintTex = (() => {
   const r = g.createRadialGradient(32, 32, 0, 32, 32, 32); r.addColorStop(0, 'rgba(255,240,210,1)'); r.addColorStop(0.25, 'rgba(255,220,160,0.45)'); r.addColorStop(1, 'rgba(255,220,160,0)');
   g.fillStyle = r; g.fillRect(0, 0, 64, 64); return new THREE.CanvasTexture(c);
 })();
+
+function applyQuality() {
+  const q = Q();
+  renderer.setPixelRatio(q.ratio()); renderer.setSize(innerWidth, innerHeight);
+  const sh = q.shadow > 0;
+  const changed = sh !== renderer.shadowMap.enabled;
+  renderer.shadowMap.enabled = sh; flash.castShadow = sh;
+  if (sh && flash.shadow.mapSize.x !== q.shadow) { flash.shadow.mapSize.set(q.shadow, q.shadow); if (flash.shadow.map) { flash.shadow.map.dispose(); flash.shadow.map = null; } }
+  $('grain').classList.toggle('hidden', !q.grain);
+  if (scene && G) {
+    if (changed) scene.traverse((o) => { if (o.material) o.material.needsUpdate = true; });
+    buildPool();
+  }
+}
+
+// Fixed pool of real point lights, moved to the nearest light sources every frame.
+function buildPool() {
+  for (const L of G.pool || []) scene.remove(L);
+  G.pool = [];
+  for (let i = 0; i < Q().pool; i++) { const L = new THREE.PointLight(0xffffff, 0, 15, 1.5); scene.add(L); G.pool.push(L); }
+}
+function updatePool() {
+  const cam = camera.position, list = [];
+  for (const s of G.lights) { if (s.cur > 0.01) { s._d = s.pos.distanceToSquared(cam); list.push(s); } }
+  list.sort((a, b) => a._d - b._d);
+  G.pool.forEach((L, i) => {
+    const s = list[i];
+    if (!s) { L.intensity = 0; return; }
+    const d = Math.sqrt(s._d), fade = d < 22 ? 1 : Math.max(0, 1 - (d - 22) / 12);
+    L.position.copy(s.pos); L.color.copy(s.color); L.distance = s.dist; L.intensity = s.cur * fade;
+  });
+}
 
 // ---------- state ----------
 let scene = null, G = null, state = 'warning';
@@ -82,13 +124,15 @@ function startCase(def) {
   scene.add(camera);
 
   G = {
-    def, clues: new Set(), asked: new Set(), flags: {}, colliders: [], lamps: [], anims: [], interacts: [],
+    def, clues: new Set(), asked: new Set(), flags: {}, colliders: [], lamps: [], lights: [], anims: [], interacts: [], pool: [],
     pos: new THREE.Vector3(def.spawn.x, 0, def.spawn.z), yaw: def.spawn.yaw, pitch: 0, bob: 0, stepAcc: 0,
-    ui: null, cut: null, flashOn: true, flashFlicker: 0, t: 0, zone: null, ambience: null, nearest: null,
+    ui: null, cut: null, flashOn: true, flashFlicker: 0, t: 0, zone: null, ambience: null, nearest: null, perf: { t: 0, n: 0, checks: 0 },
   };
-  B.init({ scene, colliders: G.colliders, lamps: G.lamps, anims: G.anims });
-  G.rain = makeRain(2600); scene.add(G.rain);
+  B.init({ scene, colliders: G.colliders, lamps: G.lamps, lights: G.lights, anims: G.anims });
+  G.rain = makeRain(Q().rain); scene.add(G.rain);
   def.build(api);
+  B.staticBatch(scene);
+  buildPool();
   flash.intensity = 160;
   $('caseLabel').textContent = `${def.num} · ${def.place.toUpperCase()}`;
   $('toasts').innerHTML = '';
@@ -401,6 +445,10 @@ const bindSlider = (id, key, apply) => { const el = $(id); el.value = settings[k
 bindSlider('sBright', 'bright', (v) => { renderer.toneMappingExposure = v; });
 bindSlider('sSens', 'sens', () => {});
 bindSlider('sVol', 'vol', (v) => sound.setVolume(v));
+function syncQualityUI() { $('sQuality').value = settings.quality; }
+syncQualityUI();
+$('sQuality').onchange = () => { settings.quality = $('sQuality').value; settings.qualityManual = true; saveSettings(); applyQuality(); };
+$('grain').classList.toggle('hidden', !Q().grain);
 $('nbClose').onclick = () => closeUI();
 $('pClose').onclick = () => closeUI();
 
@@ -540,6 +588,20 @@ function updateAmbience() {
   }
 }
 
+// If the game runs slowly, drop one quality step (at most twice), unless the player picked a level.
+function autoQuality(dt) {
+  const p = G.perf;
+  if (settings.qualityManual || p.checks >= 2 || settings.quality === 'low') return;
+  p.t += dt; p.n++;
+  if (p.t < 6) return;
+  const fps = p.n / p.t; p.t = 0; p.n = 0; p.checks++;
+  if (fps < 32) {
+    settings.quality = settings.quality === 'high' ? 'medium' : 'low';
+    saveSettings(); applyQuality(); syncQualityUI();
+    toast(`Graphics lowered to ${settings.quality.toUpperCase()} for smoother play (Esc to change)`);
+  }
+}
+
 let last = performance.now();
 function frame(now) {
   requestAnimationFrame(frame);
@@ -553,7 +615,9 @@ function frame(now) {
     camera.position.set(G.pos.x, 1.65, G.pos.z); camera.rotation.set(G.pitch, G.yaw + Math.sin(G.t * 0.1) * 0.05, 0);
   }
   for (const a of G.anims) a(dt);
+  updatePool();
   updateRain(dt);
+  if (state === 'play' && !G.cut && !G.ui) autoQuality(dt);
   renderer.render(scene, camera);
 }
 requestAnimationFrame(frame);
@@ -566,4 +630,4 @@ requestAnimationFrame(frame);
 })();
 
 // debug / test hook (used by headless playtests)
-window.__hb = { CASES, startCase, api, toMenu, camera, renderer, get G() { return G; }, get state() { return state; } };
+window.__hb = { CASES, startCase, api, toMenu, camera, renderer, settings, applyQuality, get G() { return G; }, get state() { return state; } };

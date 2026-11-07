@@ -85,6 +85,7 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); c
 .ptitle { font-family: 'Oswald', sans-serif; letter-spacing: 0.4em; font-size: 22px; }
 .panel label { display: flex; flex-direction: column; gap: 4px; font-family: 'Special Elite', monospace; font-size: 13px; color: var(--dim); text-align: left; }
 input[type=range] { accent-color: var(--blood); width: 100%; }
+select { background: #15130f; color: var(--ink); border: 1px solid var(--line); padding: 7px 8px; font-family: 'Special Elite', monospace; font-size: 14px; }
 
 #iTitle { font-family: 'Oswald', sans-serif; font-size: 26px; letter-spacing: 0.06em; margin-bottom: 12px; }
 #iBody p { font-size: 20px; line-height: 1.5; margin: 0 0 12px; }
