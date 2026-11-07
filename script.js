@@ -18,6 +18,10 @@ export const ROLES = {
   finch: { name: 'Abel Finch (watchmaker)', note: 'Thin, precise, slightly prickly old man who is tired of being suspected.' },
   jory: { name: 'Jory', note: 'Homeless man by the fire. Rough voice, nervous, ashamed of looking away.' },
   morrow: { name: 'Father Morrow', note: 'Elderly priest. Gentle, sorrowful, careful with his words, full of guilt.' },
+  walt: { name: 'Walt Ebner (diner owner)', note: 'Sixties, warm, grandfatherly, the nicest man in town. Never sinister in his dialogue: kind, a little sad. In the house he speaks softly, almost tenderly, which is what makes it horrible.' },
+  ruth: { name: 'Ruth Harmon', note: "Nell's older sister. Frightened, raw from not sleeping, clinging to hope." },
+  dag: { name: 'Dag Holm (mechanic)', note: 'Practical, gruff Scandinavian mechanic. Talks about engines, not feelings.' },
+  silas: { name: 'Silas Crowe (hunting guide)', note: 'Cold, defensive loner who knows the whole town suspects him. Short sentences.' },
   man: { name: 'The man in the morgue', note: 'No words. Sounds only. The scarier and more wrong, the better. Record close to the mic.' },
 };
 
@@ -28,7 +32,7 @@ const MAN = [
   { id: 'man.chew', text: '(Slow, wet chewing and swallowing, close to the mic. Chew fruit or gum. 5 to 8 seconds.)', where: 'Inside the morgue' },
 ];
 
-export const speakerOf = (text) => (/^HOLT:/.test(text) ? 'holt' : 'narrator');
+export const speakerOf = (text) => { const m = text.match(/^([A-Z]+):/); return m ? m[1].toLowerCase() : 'narrator'; };
 export const stripSpeaker = (text) => text.replace(/^[A-Z]+:\s*/, '');
 
 export function buildScript(CASES) {

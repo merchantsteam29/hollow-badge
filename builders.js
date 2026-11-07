@@ -191,21 +191,22 @@ export function setLamp(rec, on, k = 1) {
 
 // Forest: one merged tree shape (vertex-coloured), instanced per 12 m chunk.
 // Chunks behind the camera are frustum-culled, and chunks deep in the fog are hidden (C.cull).
-let treeGeo = null, treeMat = null;
-function makeTree() {
+let treeGeo = null, treeMat = null, treeSnow = false;
+function makeTree(snow) {
+  treeSnow = !!snow;
   const paint = (g, hex) => {
     const c = new THREE.Color(hex), n = g.attributes.position.count, arr = new Float32Array(n * 3);
     for (let i = 0; i < n; i++) arr.set([c.r, c.g, c.b], i * 3);
     g.setAttribute('color', new THREE.BufferAttribute(arr, 3)); return g;
   };
   const parts = [paint(new THREE.CylinderGeometry(0.12, 0.22, 2.4, 5).translate(0, 1.2, 0), 0x1a120c)];
-  for (let k = 0; k < 3; k++) parts.push(paint(new THREE.ConeGeometry(1.4 * (1 - k * 0.22), 2.8, 6).translate(0, 2.6 + k * 1.5, 0), 0x0a120d));
+  for (let k = 0; k < 3; k++) parts.push(paint(new THREE.ConeGeometry(1.4 * (1 - k * 0.22), 2.8, 6).translate(0, 2.6 + k * 1.5, 0), snow ? [0x1c2a26, 0x4a5658, 0x7c878c][k] : 0x0a120d));
   treeGeo = mergeGeometries(parts, false); parts.forEach((g) => g.dispose());
   treeMat = new THREE.MeshLambertMaterial({ vertexColors: true });
 }
-export function forest(list) {
+export function forest(list, o = {}) {
   if (!list.length) return;
-  if (!treeGeo || !treeGeo.attributes.position) makeTree();
+  if (!treeGeo || !treeGeo.attributes.position || treeSnow !== !!o.snow) makeTree(o.snow);
   const chunks = new Map();
   for (const t of list) {
     const k = Math.floor(t.x / 12) + ',' + Math.floor(t.z / 12);
@@ -481,7 +482,7 @@ export function person(x, z, o = {}) {
       if (!sit) { spine.rotation.z = Math.sin(t * 0.35) * 0.025; g.position.x = Math.sin(t * 0.35) * 0.012; }
       spine.rotation.x = baseSpineX + Math.sin(t * 1.7) * 0.01;
       let ty = Math.sin(t * 0.31) * 0.45 + Math.sin(t * 0.97) * 0.08, tp = Math.sin(t * 0.23) * 0.06;
-      if (o.look !== false && C.camera) {
+      if (o.look !== false && !outer.userData.noLook && C.camera) {
         head.getWorldPosition(wp);
         const dx = C.camera.position.x - wp.x, dz = C.camera.position.z - wp.z, d = Math.hypot(dx, dz);
         if (d < 7) {
@@ -500,6 +501,21 @@ export function person(x, z, o = {}) {
   return outer;
 }
 
+// Walking gait for a rigged person (person({ rig: true })). phase advances with distance walked.
+export function gait(p, phase, amp = 1) {
+  const { legs, arms, inner } = p.userData;
+  for (const l of legs) {
+    const q = phase + (l.side > 0 ? 0 : Math.PI);
+    l.hip.rotation.set(-Math.sin(q) * 0.42 * amp, 0, 0);
+    l.knee.rotation.set(0.08 + Math.max(0, Math.sin(q - 1.2)) * 0.75 * amp, 0, 0);
+  }
+  for (const a of arms) {
+    const q = phase + (a.side > 0 ? Math.PI : 0);
+    a.shoulder.rotation.set(-Math.sin(q) * 0.3 * amp, 0, a.side * 0.08);
+    a.elbow.rotation.set(-0.25 - Math.max(0, Math.sin(q)) * 0.2 * amp, 0, 0);
+  }
+  inner.position.y = Math.abs(Math.sin(phase)) * 0.025 * amp;
+}
 export const faceTo = (fx, fz, tx, tz) => Math.atan2(tx - fx, tz - fz);
 
 export function car(x, z, o = {}) {

@@ -64,6 +64,19 @@ export class Sound {
   page() { this.burst(0.18, 2400, 0.08, 'bandpass'); }
   clue() { this.tone(392, 1.2, 0.08); this.tone(523, 1.6, 0.06, 'sine', 0.12); this.tone(311, 2.2, 0.05, 'triangle', 0.25); }
   door() { this.tone(70, 1.4, 0.2, 'sawtooth'); this.burst(1.2, 400, 0.12, 'bandpass'); }
+  // a car pulling up outside: engine rumble that dies, then a door slam
+  car() {
+    if (!this.ctx) return;
+    const c = this.ctx, t = c.currentTime;
+    const o = c.createOscillator(); o.type = 'sawtooth'; o.frequency.setValueAtTime(42, t); o.frequency.linearRampToValueAtTime(30, t + 2.2);
+    const f = c.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 160;
+    const g = c.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.18, t + 0.4); g.gain.exponentialRampToValueAtTime(0.0001, t + 2.4);
+    o.connect(f).connect(g).connect(this.master); o.start(t); o.stop(t + 2.5);
+    setTimeout(() => { this.burst(0.25, 220, 0.45); this.tone(60, 0.3, 0.3, 'sine'); }, 2900);
+  }
+  gasp() { this.burst(0.45, 1300, 0.28, 'bandpass'); this.tone(320, 0.25, 0.05, 'triangle'); }
+  bell() { for (let i = 0; i < 3; i++) { this.tone(196, 3.5, 0.12, 'sine', i * 1.6); this.tone(392, 2.5, 0.05, 'sine', i * 1.6); this.tone(587, 1.8, 0.03, 'sine', i * 1.6); } }
+  lid() { this.burst(0.3, 600, 0.2); this.tone(90, 0.4, 0.12, 'triangle'); }
   // jumpscare shriek: detuned saws sweeping up with fast vibrato, plus a noise blast
   scream() {
     if (!this.ctx) return;

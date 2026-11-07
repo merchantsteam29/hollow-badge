@@ -157,6 +157,17 @@ function disposeScene(s) {
   B.clearCache();
 }
 
+function makeSnow(count) {
+  const pos = new Float32Array(count * 3), seed = new Float32Array(count);
+  for (let i = 0; i < count; i++) { pos.set([(Math.random() - 0.5) * 36, Math.random() * 14, (Math.random() - 0.5) * 36], i * 3); seed[i] = Math.random() * 10; }
+  const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  const fc = document.createElement('canvas'); fc.width = fc.height = 32; const fg = fc.getContext('2d');
+  const grd = fg.createRadialGradient(16, 16, 0, 16, 16, 16); grd.addColorStop(0, 'rgba(255,255,255,1)'); grd.addColorStop(0.5, 'rgba(255,255,255,0.6)'); grd.addColorStop(1, 'rgba(255,255,255,0)');
+  fg.fillStyle = grd; fg.fillRect(0, 0, 32, 32);
+  const pts = new THREE.Points(geo, new THREE.PointsMaterial({ color: 0xe6ecf2, size: 0.06, map: new THREE.CanvasTexture(fc), transparent: true, opacity: 0.9, depthWrite: false, fog: true }));
+  pts.frustumCulled = false; pts.userData.seed = seed; pts.userData.snow = true;
+  return pts;
+}
 function makeRain(count) {
   const pos = new Float32Array(count * 6);
   for (let i = 0; i < count; i++) {
@@ -174,6 +185,7 @@ function startCase(def) {
   disposeScene(scene);
   $('menu').classList.add('hidden'); $('pause').classList.add('hidden');
   voices.stop(); $('danger').style.opacity = 0; $('jolt').className = '';
+  $('hideHud').classList.add('hidden'); $('slats').classList.remove('on'); $('tBreath').classList.add('hidden');
   scene = new THREE.Scene();
   scene.background = new THREE.Color(0x030407);
   scene.fog = new THREE.FogExp2(0x030407, def.fog);
@@ -187,7 +199,7 @@ function startCase(def) {
     ui: null, cut: null, flashOn: true, flashFlicker: 0, t: 0, zone: null, ambience: null, nearest: null, perf: { t: 0, n: 0, checks: 0 },
   };
   B.init({ scene, colliders: G.colliders, lamps: G.lamps, lights: G.lights, anims: G.anims, cull: G.cull, camera, cheap: settings.quality === 'low' });
-  G.rain = makeRain(Q().rain); scene.add(G.rain);
+  G.rain = def.snow ? makeSnow(Math.round(Q().rain * 0.8)) : makeRain(Q().rain); scene.add(G.rain);
   def.build(api);
   B.staticBatch(scene);
   registerCulling();
@@ -260,11 +272,36 @@ const api = {
   shake: (v) => { G.shake = Math.max(G.shake || 0, v); },
   danger: (v) => { $('danger').style.opacity = Math.max(0, Math.min(1, v)); },
   jolt: (kind) => { const el = $('jolt'); el.className = ''; void el.offsetWidth; if (kind) el.className = kind; },
+  // hiding / scripted helpers
+  get colliders() { return G.colliders; },
+  freeze(on) { G.frozen = on; if (on) for (const k in keys) keys[k] = false; },
+  setEye(h) { G.eyeH = h; },
+  weather(on) { if (G.rain) G.rain.visible = on; },
+  holdingBreath: () => !!(keys.Space || TOUCH.breath),
+  caption(text, vo, ms = 3000) {
+    const cap = $('caption'); cap.textContent = text; cap.classList.add('on');
+    clearTimeout(G.capT); G.capT = setTimeout(() => { if (!G.cut) cap.classList.remove('on'); }, ms);
+    if (vo) voices.play(vo);
+  },
+  hideHud(o) {
+    const el = $('hideHud');
+    if (!o) { el.classList.add('hidden'); $('slats').classList.remove('on'); $('tBreath').classList.add('hidden'); G.breathUI = false; return; }
+    el.classList.remove('hidden');
+    $('hideText').textContent = o.text || '';
+    $('breathBar').style.display = o.breath === undefined ? 'none' : 'block';
+    if (o.breath !== undefined) $('breathFill').style.width = Math.round(o.breath * 100) + '%';
+    $('breathFill').classList.toggle('low', o.breath !== undefined && o.breath < 0.3);
+    $('slats').classList.toggle('on', !!o.slats);
+    G.breathUI = o.breath !== undefined;
+    $('tBreath').classList.toggle('hidden', !(TOUCH.on && G.breathUI));
+  },
   // chase / scripted-scene helpers
   get player() { return G.pos; },
   get touch() { return TOUCH.on; },
   setPlayer(x, z, yaw, pitch = 0) { G.pos.set(x, 0, z); G.yaw = yaw; G.pitch = pitch; },
-  playing: () => state === 'play' && G && !G.ui && !G.cut && !G.frozen,
+  paused: () => !$('pause').classList.contains('hidden'),
+  uiOpen: () => !!(G.ui || G.cut),
+  playing: () => state === 'play' && G && !G.ui && !G.cut && !G.frozen && $('pause').classList.contains('hidden'),
   collide: (p, r) => collide(p, r),
   blackout(text, ms, cb) {
     G.frozen = true; for (const k in keys) keys[k] = false;
@@ -671,6 +708,10 @@ function updateTouchAct(best) {
   tap('tFlash', () => api.flash(!G.flashOn));
   tap('tNote', () => { resetStick(); openNotebook(); });
   tap('tPause', () => { resetStick(); showPause(true); });
+  // hold-breath button for touch
+  const tb = $('tBreath');
+  tb.addEventListener('pointerdown', (e) => { e.preventDefault(); TOUCH.breath = true; tb.classList.add('on'); });
+  for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) tb.addEventListener(ev, () => { TOUCH.breath = false; tb.classList.remove('on'); });
   // keep the page from scrolling or zooming during play
   document.addEventListener('touchmove', (e) => { if (state === 'play' && e.target.closest && e.target.closest('#touch')) e.preventDefault(); }, { passive: false });
 })();
@@ -712,7 +753,7 @@ function updatePlayer(dt) {
     G.stepAcc += sp * dt;
     if (G.stepAcc > (run ? 1.1 : 0.85)) { G.stepAcc = 0; sound.step(run); }
   }
-  camera.position.set(G.pos.x, 1.65 + (moving ? Math.sin(G.bob) * 0.035 : 0), G.pos.z);
+  camera.position.set(G.pos.x, (G.eyeH || 1.65) + (moving ? Math.sin(G.bob) * 0.035 : 0), G.pos.z);
   camera.rotation.set(G.pitch + (moving ? Math.sin(G.bob * 0.5) * 0.004 : 0), G.yaw, 0);
 }
 
@@ -748,6 +789,18 @@ function updateInteract() {
 }
 
 function updateRain(dt) {
+  if (G.rain.userData.snow) {
+    const a = G.rain.geometry.attributes.position, arr = a.array, sd = G.rain.userData.seed, cx = camera.position.x, cz = camera.position.z, t = G.t;
+    for (let i = 0, j = 0; i < arr.length; i += 3, j++) {
+      arr[i + 1] -= (1.1 + (sd[j] % 1) * 0.8) * dt;
+      arr[i] += (Math.sin(t * 0.7 + sd[j]) * 0.5 + 0.9) * dt; // wind from the west
+      arr[i + 2] += Math.cos(t * 0.5 + sd[j] * 2) * 0.3 * dt;
+      if (arr[i + 1] < 0 || Math.abs(arr[i] - cx) > 18 || Math.abs(arr[i + 2] - cz) > 18) {
+        arr[i] = cx + (Math.random() - 0.5) * 36; arr[i + 1] = 6 + Math.random() * 8; arr[i + 2] = cz + (Math.random() - 0.5) * 36;
+      }
+    }
+    a.needsUpdate = true; return;
+  }
   const a = G.rain.geometry.attributes.position, arr = a.array, cx = camera.position.x, cz = camera.position.z;
   for (let i = 0; i < arr.length; i += 6) {
     arr[i + 1] -= 16 * dt; arr[i + 4] -= 16 * dt;
@@ -847,4 +900,4 @@ requestAnimationFrame(frame);
 })();
 
 // debug / test hook (used by headless playtests)
-window.__hb = { CASES, startCase, api, toMenu, camera, renderer, settings, applyQuality, voices, get G() { return G; }, get state() { return state; } };
+window.__hb = { CASES, startCase, api, toMenu, camera, renderer, settings, applyQuality, voices, breath: (v) => { TOUCH.breath = v; }, get G() { return G; }, get state() { return state; } };
