@@ -2,6 +2,10 @@
 
 Play: https://merchantsteam29.github.io/hollow-badge/
 
+## v3.0.1: Fix: your car in Case 04 (2026-11-07)
+
+- Your car in Ashgrove is now parked outside your building with its headlights on, and walking up to it opens the case board (it used to do nothing).
+
 ## v3.0: Case 04: The Collector (2026-11-07)
 
 - The finale. Ashgrove, your own city. You come home and your door is open.

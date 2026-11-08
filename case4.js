@@ -93,7 +93,7 @@ export const ASHGROVE = {
     if (!h('typewriter')) return 'Every card was typed on the same machine. Find it.';
     if (!h('pell_cage')) return 'Someone has been using the basement under your building. Ask Pell.';
     if (!h('gallery')) return 'The basement under your apartment. Go down.';
-    return 'Go to your car. Charge the Collector.';
+    return 'Go to your car, parked outside your building. Charge the Collector.';
   },
   endings: {
     good: {
@@ -194,7 +194,7 @@ export const ASHGROVE = {
     // lamps
     B.lamp(-4.6, 22); B.lamp(4.6, 14); B.lamp(-4.6, 6); B.lamp(4.6, -6, { flicker: true }); B.lamp(-4.6, -22); B.lamp(4.6, -34); B.lamp(-4.6, -42);
     // your car
-    B.car(2.2, 26, { color: 0x1a1e24, ry: 0 });
+    B.car(-2.6, 20.5, { color: 0x1a1e24, ry: Math.PI, lightsOn: true }); // your car, parked outside your building
     // basement door in front of your building
     B.box(1.2, 0.5, 1.4, 0x2a2420, -4.9, 0, 10.6, { collide: true, metal: 0.4 });
 
@@ -212,7 +212,7 @@ export const ASHGROVE = {
         let i = 0; const next = () => { if (i >= CAP.call.length) { api.give('call'); return; } const c = C('call', i++); api.caption(c.text.replace(/^[A-Z]+:\s*/, ''), c.vo, 4200); setTimeout(next, 4400); };
         api.sound.click(); next();
       } });
-    api.interact({ pos: [-1.6, 1.2, 26], radius: 3, label: 'Case board (car)', cond: () => !api.flags.inGallery, use: () => api.board() });
+    api.interact({ pos: [-2.6, 1.2, 20.5], radius: 3.2, label: 'Case board (your car)', cond: () => !api.flags.inGallery, use: () => api.board() });
     api.interact({ pos: [4.6, 1.5, 2.2], label: 'Talk to Dr. Lund', cond: () => !api.flags.lundGone, use: () => api.talk(W_LUND) });
     api.interact({ pos: [-4.6, 1.5, 13.2], label: 'Talk to Mr. Pell', use: () => api.talk(W_PELL) });
     api.interact({ pos: [-4.7, 1.5, 1.8], label: 'Talk to Ray Vance', use: () => api.talk(W_VANCE) });

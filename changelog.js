@@ -1,8 +1,12 @@
 // Release notes, shown in the game's "What's new" panel and mirrored in CHANGELOG.md.
 // Add the newest version at the top and bump VERSION.
-export const VERSION = '3.0';
+export const VERSION = '3.0.1';
 
 export const NOTES = [
+  {
+    v: '3.0.1', date: '2026-11-07', title: 'Fix: your car in Case 04',
+    items: ['Your car in Ashgrove is now parked outside your building with its headlights on, and walking up to it opens the case board (it used to do nothing).'],
+  },
   {
     v: '3.0', date: '2026-11-07', title: 'Case 04: The Collector',
     items: [
