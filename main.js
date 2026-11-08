@@ -4,6 +4,12 @@ import { CASES } from './cases.js';
 import { Sound } from './audio.js';
 import { openPrint } from './fingerprint.js';
 import { Voices } from './voice.js';
+import { VERSION, NOTES } from './changelog.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 
 const $ = (id) => document.getElementById(id);
 const sound = new Sound();
@@ -27,9 +33,9 @@ if (TOUCH.on && !settings.qualityManual) settings.quality = 'low';
 // ---------- graphics quality ----------
 // ratio: render resolution, shadow: flashlight shadow map size (0 = off), pool: real point lights, rain: drop count
 const QUALITY = {
-  low: { ratio: () => 0.7, shadow: 0, pool: 3, rain: 900, grain: false },
-  medium: { ratio: () => Math.min(devicePixelRatio, 1), shadow: 512, pool: 4, rain: 1700, grain: true },
-  high: { ratio: () => Math.min(devicePixelRatio, 1.5), shadow: 1024, pool: 6, rain: 2600, grain: true },
+  low: { ratio: () => 0.7, shadow: 0, pool: 3, rain: 900, grain: false, post: false },
+  medium: { ratio: () => Math.min(devicePixelRatio, 1), shadow: 512, pool: 4, rain: 1700, grain: true, post: true, msaa: 0, bloom: 0.5 },
+  high: { ratio: () => Math.min(devicePixelRatio, 1.5), shadow: 1024, pool: 6, rain: 2600, grain: true, post: true, msaa: 4, bloom: 0.6 },
 };
 if (!QUALITY[settings.quality]) settings.quality = 'medium';
 const Q = () => QUALITY[settings.quality];
@@ -47,7 +53,43 @@ const canvas = renderer.domElement;
 
 const camera = new THREE.PerspectiveCamera(70, innerWidth / innerHeight, 0.05, 70);
 camera.rotation.order = 'YXZ';
-addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
+addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); if (composer) composer.setSize(innerWidth, innerHeight); });
+
+// ---------- post-processing (Medium/High): bloom, then a film grade ----------
+// grade: cold shadows / warm highlights, gentle contrast, lens vignette, grain, slight colour fringing
+const GradeShader = {
+  uniforms: { tDiffuse: { value: null }, time: { value: 0 }, vignette: { value: 0.6 }, grain: { value: 0.045 }, aberr: { value: 0.0007 } },
+  vertexShader: 'varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+  fragmentShader: `
+    uniform sampler2D tDiffuse; uniform float time, vignette, grain, aberr; varying vec2 vUv;
+    float hash(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
+    void main() {
+      vec2 d = vUv - 0.5; float r2 = dot(d, d);
+      vec3 col = vec3(texture2D(tDiffuse, vUv + d * aberr * 4.0).r, texture2D(tDiffuse, vUv).g, texture2D(tDiffuse, vUv - d * aberr * 4.0).b);
+      float l = dot(col, vec3(0.299, 0.587, 0.114));
+      col = mix(col, col * vec3(0.86, 0.98, 1.12), smoothstep(0.45, 0.0, l) * 0.7);
+      col = mix(col, col * vec3(1.08, 1.0, 0.88), smoothstep(0.3, 0.9, l) * 0.55);
+      col = (col - 0.5) * 1.07 + 0.5;
+      col *= 1.0 - vignette * smoothstep(0.08, 0.55, r2 * 1.7);
+      col += (hash(vUv * 1000.0 + time) - 0.5) * grain;
+      gl_FragColor = vec4(max(col, 0.0), 1.0);
+    }`,
+};
+let composer = null, renderPass = null, gradePass = null;
+function buildComposer() {
+  if (composer) { composer.dispose(); composer = null; renderPass = null; gradePass = null; }
+  const q = Q();
+  const css = !q.post && q.grain;
+  $('grain').classList.toggle('hidden', !css); $('vignette').classList.toggle('hidden', !!q.post);
+  if (!q.post || !renderer.capabilities.isWebGL2) return;
+  const rt = new THREE.WebGLRenderTarget(innerWidth, innerHeight, { type: THREE.HalfFloatType, samples: q.msaa || 0 });
+  composer = new EffectComposer(renderer, rt);
+  composer.setPixelRatio(renderer.getPixelRatio()); composer.setSize(innerWidth, innerHeight);
+  renderPass = new RenderPass(scene || new THREE.Scene(), camera); composer.addPass(renderPass);
+  composer.addPass(new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), q.bloom, 0.5, 0.9));
+  composer.addPass(new OutputPass());
+  gradePass = new ShaderPass(GradeShader); composer.addPass(gradePass);
+}
 
 // flashlight on the camera
 const flash = new THREE.SpotLight(0xfff2dc, 160, 38, 0.52, 0.5, 1.3);
@@ -70,7 +112,7 @@ function applyQuality() {
   const changed = sh !== renderer.shadowMap.enabled;
   renderer.shadowMap.enabled = sh; flash.castShadow = sh;
   if (sh && flash.shadow.mapSize.x !== q.shadow) { flash.shadow.mapSize.set(q.shadow, q.shadow); if (flash.shadow.map) { flash.shadow.map.dispose(); flash.shadow.map = null; } }
-  $('grain').classList.toggle('hidden', !q.grain);
+  buildComposer();
   if (scene && G) {
     if (changed) scene.traverse((o) => { if (o.material) o.material.needsUpdate = true; });
     buildPool();
@@ -150,6 +192,7 @@ const keys = {};
 
 function disposeScene(s) {
   if (!s) return;
+  if (s.environment) s.environment.dispose();
   s.traverse((o) => {
     if (o.geometry) o.geometry.dispose();
     if (o.material) { const ms = Array.isArray(o.material) ? o.material : [o.material]; ms.forEach((m) => { if (m.map) m.map.dispose(); m.dispose(); }); }
@@ -189,6 +232,14 @@ function startCase(def) {
   scene = new THREE.Scene();
   scene.background = new THREE.Color(0x030407);
   scene.fog = new THREE.FogExp2(0x030407, def.fog);
+  var skyDome = null;
+  if (settings.quality !== 'low') {
+    const skyTex = B.skyTexture(def.sky || {});
+    const pm = new THREE.PMREMGenerator(renderer); scene.environment = pm.fromEquirectangular(skyTex).texture; pm.dispose();
+    const dome = new THREE.Mesh(new THREE.SphereGeometry(62, 40, 20), new THREE.MeshBasicMaterial({ map: skyTex, side: THREE.BackSide, fog: false, depthWrite: false }));
+    dome.renderOrder = -1; dome.userData.dynamic = true; dome.userData.noCull = true; scene.add(dome);
+    skyDome = dome;
+  }
   scene.add(new THREE.HemisphereLight(0x22304a, 0x080606, 1.1));
   const moon = new THREE.DirectionalLight(0x5a6e96, 0.45); moon.position.set(-30, 50, 10); scene.add(moon);
   scene.add(camera);
@@ -199,6 +250,8 @@ function startCase(def) {
     ui: null, cut: null, flashOn: true, flashFlicker: 0, t: 0, zone: null, ambience: null, nearest: null, perf: { t: 0, n: 0, checks: 0 },
   };
   B.init({ scene, colliders: G.colliders, lamps: G.lamps, lights: G.lights, anims: G.anims, cull: G.cull, camera, cheap: settings.quality === 'low' });
+  G.sky = skyDome;
+  if (renderPass) renderPass.scene = scene;
   G.rain = def.snow ? makeSnow(Math.round(Q().rain * 0.8)) : makeRain(Q().rain); scene.add(G.rain);
   // suspects appear in a random order each playthrough (the killer must not always be first)
   G.suspects = def.suspects.slice();
@@ -604,7 +657,24 @@ function toMenu() {
   $('menu').classList.remove('hidden');
   sound.ambience(0.05, 0.035);
 }
-$('warnOk').onclick = () => { sound.init(); sound.setVolume(settings.vol); $('warning').classList.add('hidden'); toMenu(); };
+function openNews() {
+  const body = $('newsBody'); body.innerHTML = '';
+  NOTES.forEach((n, i) => {
+    const d = document.createElement('div'); d.className = 'rel' + (i ? ' old' : '');
+    d.innerHTML = `<h3><span>v${n.v}</span>${n.title}<em>${n.date}</em></h3><ul>${n.items.map((t) => `<li>${t}</li>`).join('')}</ul>`;
+    body.appendChild(d);
+  });
+  $('whatsnew').classList.remove('hidden');
+  try { localStorage.setItem('hb_seen_version', VERSION); } catch {}
+}
+$('verLabel').textContent = 'v' + VERSION;
+$('newsBtn').onclick = openNews;
+$('newsClose').onclick = () => $('whatsnew').classList.add('hidden');
+$('whatsnew').addEventListener('click', (e) => { if (e.target.id === 'whatsnew') $('whatsnew').classList.add('hidden'); });
+$('warnOk').onclick = () => { sound.init(); sound.setVolume(settings.vol); $('warning').classList.add('hidden'); toMenu();
+  let seen = null; try { seen = localStorage.getItem('hb_seen_version'); } catch {}
+  if (seen !== VERSION) openNews();
+};
 $('warnNo').onclick = () => { $('warning').innerHTML = '<div class="warnbox"><p class="muted">Take care of yourself. You can close this tab.</p></div>'; };
 
 // pause controls
@@ -623,7 +693,7 @@ voices.ready.then(() => { $('voiceCount').textContent = voices.count ? `${voices
 function syncQualityUI() { $('sQuality').value = settings.quality; }
 syncQualityUI();
 $('sQuality').onchange = () => { const was = settings.quality; settings.quality = $('sQuality').value; settings.qualityManual = true; saveSettings(); applyQuality(); if (G && state === 'play' && (was === 'low') !== (settings.quality === 'low')) toast('Some changes apply fully the next time you start a case'); };
-$('grain').classList.toggle('hidden', !Q().grain);
+buildComposer();
 $('sFps').checked = !!settings.showFps; $('fps').classList.toggle('hidden', !settings.showFps);
 $('sFps').onchange = () => { settings.showFps = $('sFps').checked; saveSettings(); $('fps').classList.toggle('hidden', !settings.showFps); };
 if (SOFTWARE_GPU) { $('gpuWarn').classList.remove('hidden'); if (!settings.qualityManual) { applyQuality(); syncQualityUI(); } }
@@ -919,12 +989,14 @@ function frame(now) {
     camera.position.x += (Math.random() - 0.5) * G.shake * 0.12; camera.position.y += (Math.random() - 0.5) * G.shake * 0.1;
     camera.rotation.z += (Math.random() - 0.5) * G.shake * 0.06; G.shake = Math.max(0, G.shake - dt * 1.4);
   }
+  if (G.sky) G.sky.position.copy(camera.position);
   updatePool();
   updateCulling();
   updateFps(dt);
   updateRain(dt);
   if (state === 'play' && !G.cut && !G.ui) autoQuality(dt);
-  renderer.render(scene, camera);
+  if (composer && renderPass && renderPass.scene === scene) { gradePass.uniforms.time.value = G.t % 50; composer.render(); }
+  else renderer.render(scene, camera);
 }
 requestAnimationFrame(frame);
 

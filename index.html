@@ -48,6 +48,7 @@
 <div id="menu" class="screen hidden">
   <div class="logo">HOLLOW<span>BADGE</span></div>
   <div class="tag">Every case closes. None of them end.</div>
+  <button id="newsBtn" class="btn ghost news">What's new · <span id="verLabel"></span></button>
   <div id="gpuWarn" class="hidden"><b>Chrome isn't using your graphics card</b>, so the game will be choppy, even on a gaming PC. To fix it, open Chrome's <b>Settings → System</b>, turn on <b>Use graphics acceleration when available</b>, and click <b>Relaunch</b>. If it's already on, type <b>chrome://gpu</b> in the address bar and check whether WebGL says Hardware accelerated.</div>
   <div id="caseList"></div>
   <div class="controls desk">WASD move · Shift run · Mouse look · E / click examine &amp; talk · F flashlight · Tab notebook · Esc pause</div>
@@ -55,6 +56,15 @@
   <div class="gpu muted">Graphics: <span id="gpuName"></span></div>
   <div class="gpu muted"><a href="record.html" target="_blank" rel="noopener">Voice actors: record your lines here</a></div>
   <div class="disclaimer">Content warning: very dark, disturbing themes. Fictional towns and people.</div>
+</div>
+
+<!-- WHAT'S NEW -->
+<div id="whatsnew" class="screen dim hidden">
+  <div class="panel paper wide">
+    <div class="nbhead">WHAT'S NEW</div>
+    <div id="newsBody"></div>
+    <button id="newsClose" class="btn">Close</button>
+  </div>
 </div>
 
 <!-- INTRO CARD -->

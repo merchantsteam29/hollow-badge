@@ -35,6 +35,7 @@ const CMARY = {
     'You are the only one still looking.',
   ],
   fog: 0.05, rain: 0.16, spawn: { x: 1.6, z: 24, yaw: 0 },
+  sky: { top: '#02040a', mid: '#08101c', horizon: '#121a26', stars: true, moon: true, clouds: 'rgba(55,65,85,0.35)' },
   required: ['print', 'van', 'jacket', 'body'],
   // clues that point at the killer himself (the backpack or the body prove a crime, not who)
   proof: ['print', 'van', 'jacket', 'knife', 'gary', 'mom_van', 'tracks'],
@@ -125,10 +126,10 @@ const CMARY = {
     const { B } = api;
     const r = B.rng(9);
     // ground, road, sidewalks
-    B.ground(0, -22, 80, 120, 0x0c0f0c);
-    B.flat(8, 70, 0x131416, 0, -3, 0.02, { rough: 0.35, metal: 0.2 });
+    B.ground(0, -22, 80, 120, 0x0c0f0c, { map: 'grass' });
+    B.flat(8, 70, 0x131416, 0, -3, 0.02, { rough: 0.35, metal: 0.2, map: 'asphalt' });
     for (let z = 30; z > -38; z -= 4) B.flat(0.14, 1.8, 0x4d4a38, 0, z, 0.03);
-    B.flat(2.4, 70, 0x232427, -5.2, -3, 0.04); B.flat(2.4, 70, 0x232427, 5.2, -3, 0.04);
+    B.flat(2.4, 70, 0x232427, -5.2, -3, 0.04, { map: 'concrete' }); B.flat(2.4, 70, 0x232427, 5.2, -3, 0.04, { map: 'concrete' });
     B.flat(4.5, 40, 0x18130e, 0, -57, 0.025);
     // puddles
     for (let i = 0; i < 14; i++) B.flat(0.8 + r() * 1.6, 0.6 + r() * 1.2, 0x0a0c10, (r() - 0.5) * 7, 28 - r() * 62, 0.035, { rough: 0.05, metal: 0.9 });
@@ -381,6 +382,7 @@ const WING = {
     'Tonight you walk the scenes yourself.',
   ],
   fog: 0.058, rain: 0.1, spawn: { x: 0, z: 20, yaw: 0 },
+  sky: { top: '#050508', mid: '#100c0e', horizon: '#26170f', glow: 'rgba(120,58,26,0.6)', clouds: 'rgba(80,52,44,0.45)' },
   required: ['print2', 'scar', 'log'],
   proof: ['print2', 'scar', 'log', 'limp', 'watch_buyer', 'chemical', 'daughter', 'watches'],
   culprit: 'crane',
@@ -482,14 +484,14 @@ const WING = {
   build(api) {
     const { B } = api;
     const r = B.rng(77);
-    B.ground(0, -20, 140, 140, 0x0d0d0e);
+    B.ground(0, -20, 140, 140, 0x0d0d0e, { map: 'cobble' });
     // streets
-    B.flat(10, 92, 0x121315, 0, -17, 0.02, { rough: 0.3, metal: 0.25 });
-    B.flat(76, 10, 0x121315, 2, -15, 0.025, { rough: 0.3, metal: 0.25 });
+    B.flat(10, 92, 0x121315, 0, -17, 0.02, { rough: 0.3, metal: 0.25, map: 'asphalt' });
+    B.flat(76, 10, 0x121315, 2, -15, 0.025, { rough: 0.3, metal: 0.25, map: 'asphalt' });
     for (let z = 26; z > -62; z -= 4) if (z > -10 || z < -20) B.flat(0.14, 1.8, 0x4d4a38, 0, z, 0.03);
     for (let i = 0; i < 18; i++) B.flat(0.8 + r() * 1.8, 0.6 + r() * 1.3, 0x090b0f, (r() - 0.5) * 8, 24 - r() * 84, 0.035, { rough: 0.05, metal: 0.9 });
     // cobbled lane
-    B.flat(13, 9, 0x17130f, -12, -5.5, 0.03);
+    B.flat(13, 9, 0x17130f, -12, -5.5, 0.03, { map: 'cobble' });
 
     // bounds
     B.collider(-35, -80, -34, 30); B.collider(38.5, -80, 39.5, 30); B.collider(-35, -80, 40, -79);
@@ -497,7 +499,7 @@ const WING = {
     B.collider(32, -41, 40, -40); B.collider(32, 1, 40, 2);
 
     const brick = [0x34221d, 0x2c2420, 0x302b27, 0x3a2622, 0x26221f];
-    const row = (x, z, sx, sz, face, o = {}) => B.house(x, z, { sx, sz, face, h: o.h || 8 + Math.floor(r() * 4), color: o.color || brick[Math.floor(r() * brick.length)], lit: o.lit ?? 0.12, roof: false, winW: 0.9, winH: 1.4, ...o });
+    const row = (x, z, sx, sz, face, o = {}) => B.house(x, z, { sx, sz, face, h: o.h || 8 + Math.floor(r() * 4), color: o.color || brick[Math.floor(r() * brick.length)], lit: o.lit ?? 0.12, roof: false, winW: 0.9, winH: 1.4, tex: 'brick', ...o });
     // west of Main
     row(-11.75, 20, 12.5, 12, '+x');
     row(-11.75, 6, 12.5, 14, '+x', { lit: 0.05 });
@@ -549,8 +551,8 @@ const WING = {
     }, 0.7, 0.55, -0.09, 1.5, -0.65, { ry: -Math.PI / 2, res: 256, parent: mdoor });
     row(25.25, -28, 13.5, 16, '+z');
     // church
-    B.box(18, 10, 12, 0x232220, 0, 0, -72, { collide: true });
-    B.box(4.5, 19, 4.5, 0x1f1e1c, 0, 0, -76, { collide: true });
+    B.box(18, 10, 12, 0x232220, 0, 0, -72, { collide: true, map: 'stone' });
+    B.box(4.5, 19, 4.5, 0x1f1e1c, 0, 0, -76, { collide: true, map: 'stone' });
     const spire = new THREE.Mesh(new THREE.ConeGeometry(3.2, 8, 4), B.mat(0x141416)); spire.rotation.y = Math.PI / 4; spire.position.set(0, 23, -76); api.scene.add(spire);
     B.box(10, 0.25, 1.2, 0x2c2b29, 0, 0, -65.4, { collide: true }); B.box(10, 0.5, 0.6, 0x2c2b29, 0, 0, -65.7);
     B.box(2.4, 3.6, 0.2, 0x160e0a, 0, 0.5, -65.95);

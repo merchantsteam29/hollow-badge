@@ -145,6 +145,14 @@ body.touch #fps { bottom: auto; top: 64px; right: 12px; }
   #caption { font-size: 17px; }
 }
 
+.btn.news { margin: -22px 0 26px; font-size: 12px; padding: 7px 14px; }
+#newsBody .rel { margin-bottom: 18px; }
+#newsBody .rel h3 { font-family: 'Oswald', sans-serif; font-weight: 400; letter-spacing: 0.12em; font-size: 17px; margin: 0 0 6px; color: var(--ink); }
+#newsBody .rel h3 span { color: var(--amber); margin-right: 8px; }
+#newsBody .rel h3 em { color: var(--dim); font-size: 13px; font-style: normal; margin-left: 8px; }
+#newsBody ul { margin: 0; padding-left: 20px; font-size: 17px; line-height: 1.45; color: #c8c0b0; }
+#newsBody .rel.old ul { font-size: 15px; color: #9a9284; }
+#newsClose { margin-top: 6px; }
 #keyhint { position: fixed; bottom: 14px; left: 20px; font-family: 'Special Elite', monospace; font-size: 12px; color: rgba(138,131,119,0.7); }
 
 /* panels */
@@ -248,3 +256,4 @@ body.touch .opt .k { display: none; }
 /* case board: keep the charge buttons on screen while the evidence list scrolls */
 #board .panel > .row { position: sticky; bottom: -26px; z-index: 2; margin: 18px -30px -26px; padding: 14px 30px; background: linear-gradient(rgba(15,11,7,0.85), #0f0b07 40%); }
 #bSuspects { padding-bottom: 6px; }
+#newsClose { position: sticky; bottom: -26px; width: 100%; }

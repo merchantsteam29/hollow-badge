@@ -12,10 +12,94 @@ function surface(p) {
 }
 
 const mats = new Map();
+
+// ---------- procedural textures (generated once, tiled in world units) ----------
+// Colour maps are near-white detail (mortar, board seams, grain) so the material colour still sets the hue.
+const TILE = { brick: 1.6, stone: 2.4, siding: 2.2, planks: 1.6, asphalt: 4, concrete: 2.2, grass: 3, snow: 5, cobble: 1.8 };
+const texCache = new Map();
+function noise(g, w, h, n, lo, hi, sz = 2) {
+  for (let i = 0; i < n; i++) { const v = lo + Math.random() * (hi - lo); g.fillStyle = `rgba(${v},${v},${v},${0.25 + Math.random() * 0.35})`; g.fillRect(Math.random() * w, Math.random() * h, sz * (0.5 + Math.random()), sz * (0.5 + Math.random())); }
+}
+const TEXDRAW = {
+  brick(g, s) {
+    g.fillStyle = '#7a7672'; g.fillRect(0, 0, s, s);
+    const rows = 8, bw = s / 4, bh = s / rows;
+    for (let r = 0; r < rows; r++) for (let c = -1; c < 5; c++) {
+      const v = 205 + Math.random() * 45, x = c * bw + (r % 2) * bw / 2;
+      g.fillStyle = `rgb(${v},${v - 6 + Math.random() * 10},${v - 12 + Math.random() * 14})`; g.fillRect(x + 3, r * bh + 3, bw - 6, bh - 6);
+    }
+    noise(g, s, s, 2600, 120, 255);
+  },
+  stone(g, s) {
+    g.fillStyle = '#6e6c68'; g.fillRect(0, 0, s, s);
+    for (let r = 0; r < 5; r++) { let x = -Math.random() * 60; while (x < s) { const w = 70 + Math.random() * 90, v = 190 + Math.random() * 50; g.fillStyle = `rgb(${v},${v},${v - 4})`; g.fillRect(x + 4, r * s / 5 + 4, w - 8, s / 5 - 8); x += w; } }
+    noise(g, s, s, 3000, 110, 255);
+  },
+  siding(g, s) {
+    const boards = 10, bh = s / boards;
+    for (let b = 0; b < boards; b++) {
+      const grd = g.createLinearGradient(0, b * bh, 0, (b + 1) * bh); const v = 225 + Math.random() * 25;
+      grd.addColorStop(0, `rgb(${v},${v},${v})`); grd.addColorStop(0.85, `rgb(${v - 25},${v - 25},${v - 25})`); grd.addColorStop(1, 'rgb(90,90,90)');
+      g.fillStyle = grd; g.fillRect(0, b * bh, s, bh);
+    }
+    for (let i = 0; i < 160; i++) { g.strokeStyle = `rgba(150,150,150,${Math.random() * 0.25})`; g.beginPath(); const y = Math.random() * s; g.moveTo(0, y); g.bezierCurveTo(s * 0.3, y + 3, s * 0.6, y - 3, s, y + (Math.random() - 0.5) * 4); g.stroke(); }
+  },
+  planks(g, s) {
+    const n = 6, pw = s / n;
+    for (let p = 0; p < n; p++) { const v = 200 + Math.random() * 50; g.fillStyle = `rgb(${v},${v},${v})`; g.fillRect(p * pw, 0, pw - 4, s); g.fillStyle = 'rgb(70,70,70)'; g.fillRect(p * pw + pw - 4, 0, 4, s); }
+    for (let i = 0; i < 220; i++) { g.strokeStyle = `rgba(130,130,130,${Math.random() * 0.3})`; g.beginPath(); const x = Math.random() * s; g.moveTo(x, 0); g.lineTo(x + (Math.random() - 0.5) * 8, s); g.stroke(); }
+  },
+  asphalt(g, s) { g.fillStyle = '#d8d8d8'; g.fillRect(0, 0, s, s); noise(g, s, s, 9000, 140, 255, 2); for (let i = 0; i < 7; i++) { g.strokeStyle = 'rgba(90,90,90,0.5)'; g.lineWidth = 1.5; g.beginPath(); let x = Math.random() * s, y = Math.random() * s; g.moveTo(x, y); for (let k = 0; k < 8; k++) { x += (Math.random() - 0.5) * 60; y += (Math.random() - 0.5) * 60; g.lineTo(x, y); } g.stroke(); } },
+  // roughness map: mostly rough, with smooth wet patches that catch reflections
+  asphaltRough(g, s) { g.fillStyle = 'rgb(230,230,230)'; g.fillRect(0, 0, s, s); for (let i = 0; i < 16; i++) { const x = Math.random() * s, y = Math.random() * s, r = 30 + Math.random() * 90; const grd = g.createRadialGradient(x, y, 0, x, y, r); grd.addColorStop(0, 'rgba(25,25,25,0.95)'); grd.addColorStop(1, 'rgba(25,25,25,0)'); g.fillStyle = grd; g.fillRect(x - r, y - r, r * 2, r * 2); } },
+  concrete(g, s) { g.fillStyle = '#dedede'; g.fillRect(0, 0, s, s); noise(g, s, s, 5000, 150, 255, 3); g.fillStyle = 'rgb(110,110,110)'; g.fillRect(0, s / 2 - 2, s, 4); g.fillRect(s / 2 - 2, 0, 4, s); },
+  cobble(g, s) { g.fillStyle = '#5a5a5a'; g.fillRect(0, 0, s, s); for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) { const v = 180 + Math.random() * 60; g.fillStyle = `rgb(${v},${v},${v})`; g.beginPath(); g.ellipse(c * s / 8 + s / 16 + (r % 2) * s / 16, r * s / 8 + s / 16, s / 19, s / 21, Math.random(), 0, 7); g.fill(); } noise(g, s, s, 2000, 120, 255); },
+  grass(g, s) { g.fillStyle = '#d0d0d0'; g.fillRect(0, 0, s, s); for (let i = 0; i < 7000; i++) { const v = 150 + Math.random() * 105; g.strokeStyle = `rgba(${v},${v},${v},0.6)`; g.beginPath(); const x = Math.random() * s, y = Math.random() * s; g.moveTo(x, y); g.lineTo(x + (Math.random() - 0.5) * 4, y - 3 - Math.random() * 6); g.stroke(); } },
+  snow(g, s) { g.fillStyle = '#f0f0f0'; g.fillRect(0, 0, s, s); for (let i = 0; i < 9; i++) { const x = Math.random() * s, y = Math.random() * s, r = 60 + Math.random() * 140; const grd = g.createRadialGradient(x, y, 0, x, y, r); grd.addColorStop(0, 'rgba(200,205,215,0.35)'); grd.addColorStop(1, 'rgba(200,205,215,0)'); g.fillStyle = grd; g.fillRect(x - r, y - r, r * 2, r * 2); } noise(g, s, s, 2500, 210, 255, 2); },
+  window(g, s) { // lit: warm glow, curtains, frame + cross bars (used as emissive map)
+    const grd = g.createRadialGradient(s / 2, s * 0.75, 4, s / 2, s * 0.6, s * 0.75); grd.addColorStop(0, '#fff'); grd.addColorStop(1, '#8a8a8a');
+    g.fillStyle = grd; g.fillRect(0, 0, s, s);
+    g.fillStyle = 'rgba(40,40,40,0.55)'; g.fillRect(0, 0, s * 0.2, s); g.fillRect(s * 0.8, 0, s * 0.2, s);
+    g.fillStyle = 'rgba(40,40,40,0.35)'; g.fillRect(0, 0, s, s * 0.12);
+    if (Math.random() < 0.5) { g.fillStyle = 'rgba(30,30,30,0.6)'; g.beginPath(); g.ellipse(s * (0.35 + Math.random() * 0.3), s * 0.62, s * 0.08, s * 0.2, 0, 0, 7); g.fill(); }
+    g.fillStyle = '#0a0a0a'; g.fillRect(0, 0, s, 10); g.fillRect(0, s - 10, s, 10); g.fillRect(0, 0, 10, s); g.fillRect(s - 10, 0, 10, s); g.fillRect(s / 2 - 5, 0, 10, s); g.fillRect(0, s * 0.45 - 5, s, 10);
+  },
+  windowDark(g, s) { // unlit: dark glass with a faint sheen, frame + cross bars
+    const grd = g.createLinearGradient(0, 0, s, s); grd.addColorStop(0, '#9aa0a8'); grd.addColorStop(0.5, '#5a6068'); grd.addColorStop(1, '#7a8088');
+    g.fillStyle = grd; g.fillRect(0, 0, s, s);
+    g.fillStyle = '#2a2a2a'; g.fillRect(0, 0, s, 10); g.fillRect(0, s - 10, s, 10); g.fillRect(0, 0, 10, s); g.fillRect(s - 10, 0, 10, s); g.fillRect(s / 2 - 5, 0, 10, s); g.fillRect(0, s * 0.45 - 5, s, 10);
+  },
+  beam(g, s) { const grd = g.createLinearGradient(0, 0, 0, s); grd.addColorStop(0, '#fff'); grd.addColorStop(0.25, '#999'); grd.addColorStop(0.7, '#2a2a2a'); grd.addColorStop(1, '#000'); g.fillStyle = grd; g.fillRect(0, 0, s, s); },
+};
+export function tex(name) {
+  if (texCache.has(name)) return texCache.get(name);
+  const s = name === 'beam' ? 64 : name.startsWith('window') ? 128 : 512;
+  const cv = document.createElement('canvas'); cv.width = cv.height = s;
+  TEXDRAW[name](cv.getContext('2d'), s);
+  const t = new THREE.CanvasTexture(cv);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 8;
+  if (name !== 'asphaltRough' && name !== 'beam') t.colorSpace = THREE.SRGBColorSpace;
+  texCache.set(name, t);
+  return t;
+}
+// scale a box's UVs so a texture tiles at real-world size
+function tileBox(g, w, h, d, t) {
+  const uv = g.attributes.uv, dims = [[d, h], [d, h], [w, d], [w, d], [w, h], [w, h]];
+  for (let f = 0; f < 6; f++) for (let i = 0; i < 4; i++) { const k = f * 4 + i; uv.setXY(k, uv.getX(k) * dims[f][0] / t, uv.getY(k) * dims[f][1] / t); }
+  uv.needsUpdate = true;
+}
+function tilePlane(g, w, d, t) { const uv = g.attributes.uv; for (let k = 0; k < uv.count; k++) uv.setXY(k, uv.getX(k) * w / t, uv.getY(k) * d / t); uv.needsUpdate = true; }
+
 export function mat(color, o = {}) {
-  const k = color + '|' + JSON.stringify(o);
+  const k = color + '|' + (o.map || '') + '|' + (o.emap || '') + '|' + [o.rough, o.metal, o.emissive, o.ei, o.opacity, o.double].join(',');
   if (!mats.has(k)) {
+    const extra = {};
+    // Low quality skips textures entirely (fast on weak or software-rendered machines)
+    const cheap = C && C.cheap;
+    if (o.map && !cheap) { extra.map = tex(o.map); if (o.map === 'asphalt') extra.roughnessMap = tex('asphaltRough'); }
+    if (o.emap && !cheap) extra.emissiveMap = tex(o.emap);
     mats.set(k, surface({
+      ...extra,
       color, roughness: o.rough ?? 0.92, metalness: o.metal ?? 0,
       emissive: o.emissive ?? 0x000000, emissiveIntensity: o.ei ?? 1,
       transparent: o.opacity !== undefined, opacity: o.opacity ?? 1,
@@ -36,7 +120,9 @@ function shadowy(m, cast = true) { m.castShadow = cast; m.receiveShadow = true; 
 
 // Box with its base at y.
 export function box(w, h, d, color, x, y, z, o = {}) {
-  const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), o.material || mat(color, o));
+  const geo = new THREE.BoxGeometry(w, h, d);
+  if (o.map) tileBox(geo, w, h, d, TILE[o.map] || 2);
+  const m = new THREE.Mesh(geo, o.material || mat(color, o));
   m.position.set(x, y + h / 2, z);
   if (o.ry) m.rotation.y = o.ry;
   shadowy(m, o.shadow !== false);
@@ -52,13 +138,15 @@ export function cyl(rt, rb, h, color, x, y, z, o = {}) {
   return m;
 }
 
-export function ground(cx, cz, w, d, color) {
-  const m = new THREE.Mesh(new THREE.PlaneGeometry(w, d), mat(color, { rough: 1 }));
+export function ground(cx, cz, w, d, color, o = {}) {
+  const geo = new THREE.PlaneGeometry(w, d); if (o.map) tilePlane(geo, w, d, TILE[o.map] || 3);
+  const m = new THREE.Mesh(geo, mat(color, { rough: 1, map: o.map }));
   m.rotation.x = -Math.PI / 2; m.position.set(cx, 0, cz); m.receiveShadow = true;
   C.scene.add(m); return m;
 }
 export function flat(w, d, color, x, z, y = 0.02, o = {}) {
-  const m = new THREE.Mesh(new THREE.PlaneGeometry(w, d), mat(color, { rough: o.rough ?? 0.85, metal: o.metal ?? 0 }));
+  const geo = new THREE.PlaneGeometry(w, d); if (o.map) tilePlane(geo, w, d, TILE[o.map] || 2);
+  const m = new THREE.Mesh(geo, mat(color, { rough: o.rough ?? 0.85, metal: o.metal ?? 0, map: o.map }));
   m.rotation.x = -Math.PI / 2; m.position.set(x, y, z); m.receiveShadow = true;
   C.scene.add(m); return m;
 }
@@ -95,9 +183,9 @@ export function signText(text, w, h, x, y, z, ry, o = {}) {
 function windowMat(r, lit) {
   if (r < lit) {
     const tint = [0xffc27a, 0xffd59a, 0xe8a25a][Math.floor(r * 31) % 3];
-    return mat(0x000000, { emissive: tint, ei: 0.35 + (Math.floor(r * 97) % 3) * 0.2 });
+    return mat(0x000000, { emissive: tint, ei: 0.5 + (Math.floor(r * 97) % 3) * 0.3, emap: 'window' });
   }
-  return mat(0x0b0e13, { rough: 0.25, metal: 0.6 });
+  return mat(0x1a1e24, { rough: 0.2, metal: 0.7, map: 'windowDark' });
 }
 const FACE = {
   '+x': { ry: Math.PI / 2, n: [1, 0] }, '-x': { ry: -Math.PI / 2, n: [-1, 0] },
@@ -108,7 +196,7 @@ const FACE = {
 export function house(x, z, o = {}) {
   const sx = o.sx || 7, sz = o.sz || 8, h = o.h || 5;
   const r = rng(o.seed || Math.floor(x * 13 + z * 7 + 999));
-  box(sx, h, sz, o.color || 0x2b2724, x, 0, z, { collide: true });
+  box(sx, h, sz, o.color || 0x2b2724, x, 0, z, { collide: true, map: o.tex === undefined ? 'siding' : o.tex || undefined });
   const lit = o.lit ?? 0.3;
   const win = new THREE.PlaneGeometry(o.winW || 1.0, o.winH || 1.3);
   const face = o.face || '+x';
@@ -167,8 +255,18 @@ export function lamp(x, z, o = {}) {
   const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.16, 10, 8), bulbMat);
   bulb.position.set(x, 4.55, z); C.scene.add(bulb);
   box(0.5, 0.12, 0.5, 0x111214, x, 4.7, z, { shadow: false });
+  const coneMat = new THREE.ShaderMaterial({
+    uniforms: { color: { value: new THREE.Color(color) }, opacity: { value: 0.24 }, fogDensity: { value: (C.scene.fog && C.scene.fog.density) || 0.05 } },
+    vertexShader: 'varying float vY; varying vec3 vN; varying vec3 vV; varying float vD; void main() { vY = uv.y; vec4 mv = modelViewMatrix * vec4(position, 1.0); vN = normalize(normalMatrix * normal); vV = normalize(-mv.xyz); vD = -mv.z; gl_Position = projectionMatrix * mv; }',
+    fragmentShader: 'uniform vec3 color; uniform float opacity, fogDensity; varying float vY; varying vec3 vN; varying vec3 vV; varying float vD; void main() { float edge = pow(abs(dot(normalize(vN), normalize(vV))), 2.2); float grad = smoothstep(0.02, 0.9, vY) * (0.3 + 0.7 * vY); float fog = exp(-pow(fogDensity * vD, 2.0)); gl_FragColor = vec4(color * opacity * edge * grad * fog, 1.0); }',
+    transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide,
+  });
+  if (!C.cheap) {
+    const cone = new THREE.Mesh(new THREE.ConeGeometry(o.coneR ?? 2.4, 4.4, 24, 1, true), coneMat);
+    cone.position.set(x, 4.5 - 2.2, z); cone.userData.dynamic = true; cone.renderOrder = 3; C.scene.add(cone);
+  }
   const rec = light(x, 4.3, z, color, o.intensity ?? 30, o.dist ?? 19);
-  Object.assign(rec, { bulbMat, flicker: !!o.flicker, on: true });
+  Object.assign(rec, { bulbMat, flicker: !!o.flicker, on: true, cone: coneMat });
   C.lamps.push(rec);
   if (o.flicker) {
     let t = 0, next = 1 + Math.random() * 3;
@@ -177,7 +275,7 @@ export function lamp(x, z, o = {}) {
       t += dt;
       if (t > next) { t = 0; next = 0.05 + Math.random() * (Math.random() < 0.15 ? 2.5 : 0.25); }
       const k = Math.random() < 0.12 ? 0.08 : 0.85 + Math.random() * 0.15;
-      rec.cur = rec.base * k; bulbMat.emissiveIntensity = 2.2 * k;
+      rec.cur = rec.base * k; bulbMat.emissiveIntensity = 2.2 * k; coneMat.uniforms.opacity.value = 0.24 * k;
     });
   }
   return rec;
@@ -186,6 +284,7 @@ export function setLamp(rec, on, k = 1) {
   if (!rec) return;
   rec.on = on;
   rec.cur = on ? rec.base * k : 0;
+  if (rec.cone) rec.cone.uniforms.opacity.value = on ? 0.24 * Math.min(1.4, k) : 0;
   rec.bulbMat.emissiveIntensity = on ? 2.2 * k : 0;
 }
 
@@ -602,7 +701,7 @@ const CELL = 24;
 export function staticBatch(scene) {
   const groups = new Map(), sphere = new THREE.Sphere();
   for (const o of scene.children) {
-    if (!o.isMesh || o.isInstancedMesh || o.userData.dynamic || o.material.map) continue;
+    if (!o.isMesh || o.isInstancedMesh || o.userData.dynamic) continue;
     o.updateMatrixWorld(true);
     if (!o.geometry.boundingSphere) o.geometry.computeBoundingSphere();
     sphere.copy(o.geometry.boundingSphere).applyMatrix4(o.matrixWorld);
@@ -632,4 +731,30 @@ export function staticBatch(scene) {
     removed += list.length - 1;
   }
   return removed;
+}
+
+// Night sky as an equirectangular canvas: gradient, horizon glow, clouds, stars, moon.
+// Used for the sky dome and (blurred by PMREM) as the reflection environment.
+export function skyTexture(o = {}) {
+  const W = 2048, H = 1024, cv = document.createElement('canvas'); cv.width = W; cv.height = H; const g = cv.getContext('2d');
+  const grd = g.createLinearGradient(0, 0, 0, H / 2);
+  grd.addColorStop(0, o.top || '#05070d'); grd.addColorStop(0.75, o.mid || '#0b1018'); grd.addColorStop(1, o.horizon || '#1a1c22');
+  g.fillStyle = grd; g.fillRect(0, 0, W, H / 2);
+  g.fillStyle = o.ground || '#050505'; g.fillRect(0, H / 2, W, H / 2);
+  if (o.glow) { const hg = g.createLinearGradient(0, H * 0.34, 0, H * 0.52); hg.addColorStop(0, 'rgba(0,0,0,0)'); hg.addColorStop(1, o.glow); g.fillStyle = hg; g.fillRect(0, H * 0.34, W, H * 0.18); }
+  if (o.stars) for (let i = 0; i < 900; i++) { const y = Math.random() * H * 0.42, a = Math.random() * 0.8 * (1 - y / (H * 0.45)); g.fillStyle = `rgba(220,230,255,${a})`; g.fillRect(Math.random() * W, y, Math.random() < 0.06 ? 2 : 1, 1); }
+  if (o.moon) {
+    const mx = W * 0.62, my = H * 0.2;
+    const halo = g.createRadialGradient(mx, my, 0, mx, my, 160); halo.addColorStop(0, 'rgba(200,215,240,0.35)'); halo.addColorStop(1, 'rgba(200,215,240,0)');
+    g.fillStyle = halo; g.fillRect(mx - 160, my - 160, 320, 320);
+    g.fillStyle = '#e8ecf2'; g.beginPath(); g.arc(mx, my, 16, 0, 7); g.fill();
+    g.fillStyle = 'rgba(160,170,190,0.5)'; for (let i = 0; i < 5; i++) { g.beginPath(); g.arc(mx - 6 + Math.random() * 12, my - 6 + Math.random() * 12, 2 + Math.random() * 3, 0, 7); g.fill(); }
+  }
+  if (o.clouds) for (let i = 0; i < 70; i++) {
+    const cx = Math.random() * W, cy = H * (0.12 + Math.random() * 0.32), rw = 120 + Math.random() * 320, rh = 18 + Math.random() * 40;
+    const cg = g.createRadialGradient(cx, cy, 0, cx, cy, rw); cg.addColorStop(0, o.clouds); cg.addColorStop(1, 'rgba(0,0,0,0)');
+    g.save(); g.translate(cx, cy); g.scale(1, rh / rw); g.translate(-cx, -cy); g.fillStyle = cg; g.fillRect(cx - rw, cy - rw, rw * 2, rw * 2); g.restore();
+  }
+  const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; t.mapping = THREE.EquirectangularReflectionMapping;
+  return t;
 }

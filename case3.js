@@ -33,6 +33,7 @@ export const HARROW = {
     'Now you are snowed in with whoever is doing this.',
   ],
   fog: 0.045, rain: 0.06, snow: true, spawn: { x: 1.5, z: 23, yaw: 0 },
+  sky: { top: '#090c12', mid: '#161c24', horizon: '#262c34', moon: true, clouds: 'rgba(120,130,145,0.4)' },
   required: ['ledger', 'liftpass', 'freezer'],
   proof: ['ledger', 'liftpass', 'freezer', 'table', 'nogame', 'van3', 'calendar', 'plow'],
   culprit: 'walt',
@@ -134,10 +135,10 @@ export const HARROW = {
     const { B } = api;
     const r = B.rng(212);
     // ---------- ground, snow, roads ----------
-    B.ground(0, -16, 90, 110, 0x5c646b);
-    B.flat(10, 70, 0x363b41, 0, -2, 0.02, { rough: 0.6, metal: 0.1 });
+    B.ground(0, -16, 90, 110, 0x5c646b, { map: 'snow' });
+    B.flat(10, 70, 0x363b41, 0, -2, 0.02, { rough: 0.6, metal: 0.1, map: 'asphalt' });
     B.flat(4, 12, 0x3e444a, 3, -42, 0.022);
-    for (const sx of [-5.5, 5.5]) B.box(1.0, 0.45, 70, 0x7a8288, sx, 0, -2, { shadow: false });
+    for (const sx of [-5.5, 5.5]) B.box(1.0, 0.45, 70, 0x7a8288, sx, 0, -2, { shadow: false, map: 'snow' });
     for (let i = 0; i < 30; i++) B.box(0.6 + r() * 1.4, 0.2 + r() * 0.5, 0.6 + r() * 1.4, 0x8a9298, (r() < 0.5 ? -1 : 1) * (6.5 + r() * 1.2), 0, 28 - r() * 62, { shadow: false });
     // frozen lake
     B.flat(60, 30, 0x34404a, 0, -55, 0.015, { rough: 0.12, metal: 0.45 });
