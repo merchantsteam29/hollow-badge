@@ -14,7 +14,6 @@ const LETTERS = [
   { after: 'wing', lines: ['Detective,', 'Elias was a grieving man with steady hands. I only told him where the others lived, and what time it was.', 'He kept your name on his list because I asked him to. I wanted you to come.', 'A friend.'] },
   { after: 'harrow', lines: ['Detective,', 'Walt set two extra places. One was for you. One was for me. He was a good host.', 'Three towns. Three hungry men. I fed them every one.', 'Come home. I have been keeping your city warm for you.', 'The Collector.'] },
 ];
-export const HOME_CAPTIONS = { msgs: MSGS, letters: LETTERS };
 
 export const HOME = {
   id: 'home', num: 'HOME', title: 'Your Apartment', place: 'Ashgrove', date: 'Between cases',
@@ -23,25 +22,25 @@ export const HOME = {
   // New Year's Day, after the finale. kind = good | weak | bad; trueEnd = found all three lilies
   epilogue(kind, trueEnd) {
     const shots = [
-      { pos: [2.2, 1.7, 2.2], look: [0.8, 1.5, -3], dur: 5, text: "New Year's Day.", vo: 'home.epi.0' },
-      { pos: [1.2, 1.6, -1.2], look: [0.8, 1.6, -3], dur: 4.5, text: 'The rain has stopped. Downstairs, the laundromat sign is off.', vo: 'home.epi.1' },
+      { pos: [2.2, 1.7, 2.2], look: [0.8, 1.5, -3], dur: 5, text: "New Year's Day." },
+      { pos: [1.2, 1.6, -1.2], look: [0.8, 1.6, -3], dur: 4.5, text: 'The rain has stopped. Downstairs, the laundromat sign is off.' },
     ];
     if (kind === 'good') shots.push(
-      { pos: [-0.8, 1.4, -0.6], look: [-2.2, 0.85, -2.25], dur: 4.5, text: 'No messages. No letters under the door.', vo: 'home.epi.2' },
-      { pos: [0.6, 1.6, 0.4], look: [3.47, 1.4, 0.4], dur: 5, text: 'You take the cards down from the wall, one by one. You leave the red string where it is.', vo: 'home.epi.3' },
+      { pos: [-0.8, 1.4, -0.6], look: [-2.2, 0.85, -2.25], dur: 4.5, text: 'No messages. No letters under the door.' },
+      { pos: [0.6, 1.6, 0.4], look: [3.47, 1.4, 0.4], dur: 5, text: 'You take the cards down from the wall, one by one. You leave the red string where it is.' },
     );
     else shots.push(
-      { pos: [-1.4, 1.3, 1.2], look: [-2.2, 0.05, 2.6], dur: 4.5, text: 'There is a letter under your door.', vo: 'home.epi.4' },
-      { pos: [0.6, 1.6, 0.4], look: [3.47, 1.4, 0.4], dur: 5, text: 'You do not open it. You do not need to. The red string waits on the wall.', vo: 'home.epi.5' },
+      { pos: [-1.4, 1.3, 1.2], look: [-2.2, 0.05, 2.6], dur: 4.5, text: 'There is a letter under your door.' },
+      { pos: [0.6, 1.6, 0.4], look: [3.47, 1.4, 0.4], dur: 5, text: 'You do not open it. You do not need to. The red string waits on the wall.' },
     );
     if (trueEnd) shots.push(
-      { pos: [-1.6, 1.3, -1.0], look: [-2.6, 0.95, -2.3], dur: 5, text: 'Three white lilies in a glass on your desk. One from each town.', vo: 'home.epi.6' },
-      { hold: 5, text: 'In her cell, Lund asked for only one thing. You brought them to her.', vo: 'home.epi.7' },
-      { hold: 5.5, text: "And she told you the name that was erased under yours on Crane's list.", vo: 'home.epi.8' },
-      { pos: [1.0, 1.6, 0.4], look: [3.47, 1.05, 0.4], dur: 5, text: 'You have never heard it before. You write it on a new card, and pin it to the wall.', vo: 'home.epi.9' },
-      { hold: 4, text: 'Then you go back to work.', vo: 'home.epi.10' },
+      { pos: [-1.6, 1.3, -1.0], look: [-2.6, 0.95, -2.3], dur: 5, text: 'Three white lilies in a glass on your desk. One from each town.' },
+      { hold: 5, text: 'In her cell, Lund asked for only one thing. You brought them to her.' },
+      { hold: 5.5, text: "And she told you the name that was erased under yours on Crane's list." },
+      { pos: [1.0, 1.6, 0.4], look: [3.47, 1.05, 0.4], dur: 5, text: 'You have never heard it before. You write it on a new card, and pin it to the wall.' },
+      { hold: 4, text: 'Then you go back to work.' },
     );
-    else shots.push({ hold: 4, text: 'Every case closes. None of them end.', vo: 'home.epi.11' });
+    else shots.push({ hold: 4, text: 'Every case closes. None of them end.' });
     return shots;
   },
   intro: [], fog: 0.03, rain: 0.08, spawn: { x: 1.2, z: 1.6, yaw: Math.PI * 0.85 },
@@ -74,11 +73,12 @@ export const HOME = {
     B.collider(-3.6, -3.1, 3.6, -3.0); B.collider(-3.6, 3.0, 3.6, 3.1); B.collider(-3.6, -3.1, -3.5, 3.1); B.collider(3.5, -3.1, 3.6, 3.1);
     // window on the -z wall, with the city behind it
     B.decal((g, w, h) => {
-      const grd = g.createLinearGradient(0, 0, 0, h); grd.addColorStop(0, '#05070c'); grd.addColorStop(0.6, '#141824'); grd.addColorStop(1, '#2a2018'); g.fillStyle = grd; g.fillRect(0, 0, w, h);
+      const grd = g.createLinearGradient(0, 0, 0, h); const dawn = !!api.opts.epilogue; // the epilogue: New Year's morning, the rain has stopped
+      if (dawn) { grd.addColorStop(0, '#3a4660'); grd.addColorStop(0.55, '#8a7f86'); grd.addColorStop(1, '#c9a07a'); } else { grd.addColorStop(0, '#05070c'); grd.addColorStop(0.6, '#141824'); grd.addColorStop(1, '#2a2018'); } g.fillStyle = grd; g.fillRect(0, 0, w, h);
       for (let i = 0; i < 26; i++) { const bx = Math.random() * w, bw = 20 + Math.random() * 60, bh = 60 + Math.random() * 200; g.fillStyle = '#07080c'; g.fillRect(bx, h - bh, bw, bh); for (let k = 0; k < 18; k++) if (Math.random() < 0.35) { g.fillStyle = Math.random() < 0.8 ? 'rgba(255,200,120,0.85)' : 'rgba(160,200,255,0.8)'; g.fillRect(bx + 3 + Math.random() * (bw - 8), h - bh + 6 + Math.random() * (bh - 12), 3, 4); } }
       g.fillStyle = '#1a1410'; g.fillRect(w / 2 - 4, 0, 8, h); g.fillRect(0, h / 2 - 4, w, 8);
       g.strokeStyle = '#1a1410'; g.lineWidth = 16; g.strokeRect(0, 0, w, h);
-      for (let i = 0; i < 90; i++) { g.strokeStyle = 'rgba(200,210,230,0.18)'; g.beginPath(); const x = Math.random() * w, y = Math.random() * h; g.moveTo(x, y); g.lineTo(x + 2, y + 18 + Math.random() * 20); g.stroke(); }
+      if (!dawn) for (let i = 0; i < 90; i++) { g.strokeStyle = 'rgba(200,210,230,0.18)'; g.beginPath(); const x = Math.random() * w, y = Math.random() * h; g.moveTo(x, y); g.lineTo(x + 2, y + 18 + Math.random() * 20); g.stroke(); }
     }, 1.8, 1.4, 0.8, 1.6, -2.98, { ry: 0, glow: true, res: 512 });
     B.light(0.8, 1.6, -2.4, 0x8aa0c8, 2.5, 5);
     if (api.opts.epilogue) { B.light(0.8, 2.0, -2.2, 0xffe6c8, 14, 9); if (api.opts.epilogue === 'good' && api.hasSecret('cmary') && api.hasSecret('wing') && api.hasSecret('harrow')) for (let i = 0; i < 3; i++) B.lily(-2.75 + i * 0.07, -2.2); }
@@ -124,10 +124,10 @@ export const HOME = {
       use: () => {
         if (!pending.length) { api.inspect({ title: 'Answering machine', text: ['No new messages.', 'There never are.'] }); return; }
         heard = true; api.flags.heard = true; api.refresh(); setTimeout(checkFinale, 1000);
-        const lines = [], vo = [];
-        pending.forEach((m) => { lines.push('BEEP.'); vo.push(null); m.lines.forEach((t, i) => { lines.push(t); vo.push(`home.msg.${MSGS.indexOf(m)}.${i}`); }); });
+        const lines = [];
+        pending.forEach((m) => { lines.push('BEEP.'); m.lines.forEach((t) => lines.push(t)); });
         let i = 0;
-        const next = () => { if (i >= lines.length) return; const t = lines[i], v = vo[i]; i++; api.caption(t.replace(/^[A-Z]+:\s*/, ''), v, 3800); if (t === 'BEEP.') api.sound.tone(1000, 0.25, 0.08); setTimeout(next, t === 'BEEP.' ? 900 : 4000); };
+        const next = () => { if (i >= lines.length) return; const t = lines[i]; i++; api.caption(t.replace(/^[A-Z]+:\s*/, ''), 3800); if (t === 'BEEP.') api.sound.tone(1000, 0.25, 0.08); setTimeout(next, t === 'BEEP.' ? 900 : 4000); };
         next();
       } });
     api.interact({ pos: [-2.2, 0.3, 2.5], radius: 2, label: () => (letters.length ? `Read the mail (${letters.length})` : 'The mat by the door'),
@@ -135,7 +135,7 @@ export const HOME = {
         if (!letters.length) { api.inspect({ title: 'The door', text: ['Bills. A takeout menu. Nothing anyone wrote by hand.'] }); return; }
         const L = letters[letters.length - 1];
         api.inspect({ title: letters.length > 1 ? `Letters (${letters.length}). The newest:` : 'A letter, slid under the door', text: L.lines,
-          onClose: () => { api.flags.readLetter = true; LETTERS.forEach((x, k) => { if (x === L) api.voice(`home.letter.${k}.0`); }); api.refresh(); checkFinale(); } });
+          onClose: () => { api.flags.readLetter = true; api.refresh(); checkFinale(); } });
       } });
     api.interact({ pos: [2.9, 1.4, 0.4], radius: 2.4, label: 'Look at the case wall',
       use: () => {
@@ -158,7 +158,7 @@ export const HOME = {
       if ((pending.length && !api.flags.heard) || (letters.length && !api.flags.readLetter) || !api.flags.sawWall) return;
       api.flags.phoneRinging = true;
       setTimeout(() => {
-        api.caption('Down on the street, the payphone starts to ring.', null, 4000);
+        api.caption('Down on the street, the payphone starts to ring.', 4000);
         api.sound.at([4, 0, 6], () => { api.sound.tone(880, 0.35, 0.18); api.sound.tone(990, 0.35, 0.12, 'sine', 0.42); });
         api.refresh();
       }, 1200);

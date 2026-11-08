@@ -14,7 +14,7 @@ const CAP = {
     'The lights come back. The fifth pedestal has a card now.',
   ],
 };
-const C = (scene, i) => ({ text: CAP[scene][i], vo: `ash.${scene}.${i}` });
+const C = (scene, i) => ({ text: CAP[scene][i] });
 
 export const ASHGROVE = {
   get captions() { return CAP; },
@@ -209,7 +209,7 @@ export const ASHGROVE = {
     api.interact({ pos: [5.6, 1.5, 12], radius: 2.4, glint: true, label: 'Answer the payphone', cond: () => !api.has('call'),
       use: () => {
         ringer.on = false;
-        let i = 0; const next = () => { if (i >= CAP.call.length) { api.give('call'); return; } const c = C('call', i++); api.caption(c.text.replace(/^[A-Z]+:\s*/, ''), c.vo, 4200); setTimeout(next, 4400); };
+        let i = 0; const next = () => { if (i >= CAP.call.length) { api.give('call'); return; } const c = C('call', i++); api.caption(c.text.replace(/^[A-Z]+:\s*/, ''), 4200); setTimeout(next, 4400); };
         api.sound.click(); next();
       } });
     api.interact({ pos: [-2.6, 1.2, 20.5], radius: 3.2, label: 'Case board (your car)', cond: () => !api.flags.inGallery, use: () => api.board() });
@@ -283,10 +283,10 @@ export const ASHGROVE = {
       if (!api.has('gallery') || !api.has('subject') || api.flags.scared) return;
       api.flags.scared = true; api.flags.lundGone = true; lund.visible = false;
       const steps = [
-        () => { galLights.forEach((l, i) => setTimeout(() => { l.cur = 0; api.sound.click(); }, 350 * i)); api.caption(C('gallery', 0).text, C('gallery', 0).vo, 3000); },
-        () => { const p = api.player; api.sound.at([p.x + 0.8, 1.6, p.z + 0.8], () => api.sound.whisper()); api.caption(C('gallery', 1).text.replace(/^[A-Z]+:\s*/, ''), C('gallery', 1).vo, 3500); api.danger(0.6); },
-        () => { const p = api.player; collector.position.set(p.x + 3.5, 0, p.z - 1); collector.rotation.y = Math.atan2(p.x - collector.position.x, p.z - collector.position.z); collector.visible = true; galLights[4].cur = 1.2; api.caption(C('gallery', 2).text, C('gallery', 2).vo, 2500); api.sound.heartbeat(5, 0.5); },
-        () => { collector.visible = false; galLights.forEach((l) => { l.cur = 3; }); card5.visible = true; api.danger(0); api.caption(C('gallery', 3).text, C('gallery', 3).vo, 3500); api.sound.stinger(); api.refresh(); },
+        () => { galLights.forEach((l, i) => setTimeout(() => { l.cur = 0; api.sound.click(); }, 350 * i)); api.caption(C('gallery', 0).text, 3000); },
+        () => { const p = api.player; api.sound.at([p.x + 0.8, 1.6, p.z + 0.8], () => api.sound.whisper()); api.caption(C('gallery', 1).text.replace(/^[A-Z]+:\s*/, ''), 3500); api.danger(0.6); },
+        () => { const p = api.player; collector.position.set(p.x + 3.5, 0, p.z - 1); collector.rotation.y = Math.atan2(p.x - collector.position.x, p.z - collector.position.z); collector.visible = true; galLights[4].cur = 1.2; api.caption(C('gallery', 2).text, 2500); api.sound.heartbeat(5, 0.5); },
+        () => { collector.visible = false; galLights.forEach((l) => { l.cur = 3; }); card5.visible = true; api.danger(0); api.caption(C('gallery', 3).text, 3500); api.sound.stinger(); api.refresh(); },
       ];
       steps.forEach((f, i) => setTimeout(f, 600 + i * 3200));
     }

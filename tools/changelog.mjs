@@ -8,7 +8,7 @@ const NOTES = new Function('return ' + src.slice(src.indexOf('export const NOTES
 let md = '# Hollow Badge: changelog\n\nPlay: https://merchantsteam29.github.io/hollow-badge/\n';
 for (const n of NOTES) md += `\n## v${n.v}: ${n.title} (${n.date})\n\n` + n.items.map((t) => `- ${t}`).join('\n') + '\n';
 fs.writeFileSync(path.join(root, 'CHANGELOG.md'), md);
-const out = process.argv[2], top = Number(process.argv[3] || 1);
+const out = process.argv[2];
 if (out) {
   const [cur, ...old] = NOTES;
   fs.writeFileSync(out, `## v${cur.v}: ${cur.title}\n\n` + cur.items.map((t) => `- ${t}`).join('\n')

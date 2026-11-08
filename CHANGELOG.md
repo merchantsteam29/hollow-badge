@@ -2,6 +2,16 @@
 
 Play: https://merchantsteam29.github.io/hollow-badge/
 
+## v4.1: Clean-up (2026-11-07)
+
+- Phones: the ending screen scrolls, so Go home and Epilogue can no longer end up off the bottom of a landscape phone.
+- Phones: presenting evidence in an interview scrolls the clue list into view, and the LIGHT and NOTES buttons now tick off the how-to-play checklist.
+- The menu buttons no longer overlap the tagline.
+- The epilogue morning looks like morning: the rain on your window has stopped.
+- The unused voice-acting system has been removed. The game stays fully subtitled.
+- Links to the game now show a proper preview image, and the browser tab has a badge icon.
+- Behind the scenes: tidier code, a saved suite of automated playtests (desktop and phone), and a licence.
+
 ## v4.0.1: Fully subtitled (2026-11-07)
 
 - Hollow Badge is fully subtitled with no spoken dialogue. The voice-actor recording link has been removed from the menu.

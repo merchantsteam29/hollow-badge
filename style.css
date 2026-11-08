@@ -19,7 +19,6 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); c
 #jolt.red { background: #a00; animation: jolt 0.7s ease-out forwards; }
 #jolt.black { background: #000; opacity: 1; }
 @keyframes jolt { from { opacity: 0.95; } to { opacity: 0; } }
-.gpu a { color: var(--amber); }
 #slats { position: fixed; inset: 0; z-index: 3; pointer-events: none; opacity: 0; transition: opacity 0.4s;
   background: repeating-linear-gradient(180deg, rgba(6,4,3,0.94) 0 15px, rgba(6,4,3,0) 15px 40px); }
 #slats.on { opacity: 1; }
@@ -310,3 +309,8 @@ body.touch .opt .k { display: none; }
 .casecard { width: min(270px, 90vw); padding: 16px 18px; }
 .casecard .ctitle { font-size: 24px; }
 .casecard .cblurb { font-size: 16px; }
+#menu .btn.news { margin: 0 0 20px; }
+/* v4.1: the ending scrolls on short screens instead of pushing its buttons off the bottom */
+#ending { justify-content: flex-start; overflow-y: auto; }
+#ending .endbox { margin: auto 0; padding: 16px 0; }
+@media (max-height: 520px) { #eTitle { margin-bottom: 14px; } #eBody p { font-size: 16px; margin-bottom: 10px; } }

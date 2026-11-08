@@ -1,8 +1,20 @@
 // Release notes, shown in the game's "What's new" panel and mirrored in CHANGELOG.md.
 // Add the newest version at the top and bump VERSION.
-export const VERSION = '4.0.1';
+export const VERSION = '4.1';
 
 export const NOTES = [
+  {
+    v: '4.1', date: '2026-11-07', title: 'Clean-up',
+    items: [
+      'Phones: the ending screen scrolls, so Go home and Epilogue can no longer end up off the bottom of a landscape phone.',
+      'Phones: presenting evidence in an interview scrolls the clue list into view, and the LIGHT and NOTES buttons now tick off the how-to-play checklist.',
+      'The menu buttons no longer overlap the tagline.',
+      'The epilogue morning looks like morning: the rain on your window has stopped.',
+      'The unused voice-acting system has been removed. The game stays fully subtitled.',
+      'Links to the game now show a proper preview image, and the browser tab has a badge icon.',
+      'Behind the scenes: tidier code, a saved suite of automated playtests (desktop and phone), and a licence.',
+    ],
+  },
   {
     v: '4.0.1', date: '2026-11-07', title: 'Fully subtitled',
     items: ['Hollow Badge is fully subtitled with no spoken dialogue. The voice-actor recording link has been removed from the menu.'],

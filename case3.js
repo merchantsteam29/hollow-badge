@@ -13,7 +13,7 @@ const CAP = {
     'Upstairs, a door closes. Then nothing.',
   ],
 };
-const C = (i) => ({ text: CAP.search[i], vo: `harrow.search.${i}` });
+const C = (i) => ({ text: CAP.search[i] });
 
 export const HARROW = {
   get captions() { return CAP; },
@@ -360,11 +360,11 @@ export const HARROW = {
       Object.assign(hide, { t: first ? 14 : 11, spot: null, breath: 1, gasp: 0, wp: 0, pause: 0, said: {}, upT: 0 });
       walt.visible = false; walt.userData.noLook = true; wFlash.intensity = 0;
       if (first) {
-        api.caption(C(0).text, C(0).vo, 3000);
+        api.caption(C(0).text, 3000);
         api.sound.at([7, 1, -8], () => api.sound.car());
         let s = 0; const sweep = (dt) => { s += dt; headSweep.pos.set(5 + s * 1.5, 1.3, -6 - s * 6); headSweep.cur = s < 2.5 ? 30 : 0; return s > 2.5; };
         const fn = (dt) => { if (sweep(dt)) api.anims.splice(api.anims.indexOf(fn), 1); }; api.anims.push(fn);
-        setTimeout(() => { if (api.flags.hidePhase === 'countdown') api.caption(C(1).text, C(1).vo, 3000); }, 3200);
+        setTimeout(() => { if (api.flags.hidePhase === 'countdown') api.caption(C(1).text, 3000); }, 3200);
       }
       api.refresh();
     }
@@ -383,7 +383,7 @@ export const HARROW = {
         api.freeze(false); api.setEye(1.65);
         api.setPlayer(14.4, -12.8, Math.PI, 0);
         startHide(false);
-        api.caption('He is coming back up the steps. HIDE.', null, 2500);
+        api.caption('He is coming back up the steps. HIDE.', 2500);
       });
     }
     function escape() {
@@ -428,7 +428,7 @@ export const HARROW = {
         walt.position.y = Math.max(0, Math.min(2.9, (walt.position.x - 14.1) * 0.75));
         B.gait(walt, hide.phaseWalk += dt * 4, 0.8);
         if (walt.position.x > 17.6) { walt.visible = false; wFlash.intensity = 0; }
-        if (hide.upT > 1 && !hide.said.up) { hide.said.up = true; api.caption(C(6).text, C(6).vo, 3500); }
+        if (hide.upT > 1 && !hide.said.up) { hide.said.up = true; api.caption(C(6).text, 3500); }
         if (hide.upT > 5.5) escape();
         return;
       }
@@ -440,7 +440,7 @@ export const HARROW = {
         hide.phaseWalk += step * 3.2; B.gait(walt, hide.phaseWalk, 1);
       } else {
         B.gait(walt, 0, 0);
-        if (w.say !== undefined && !hide.said[hide.wp]) { hide.said[hide.wp] = true; api.caption(C(w.say).text, C(w.say).vo, 3200); }
+        if (w.say !== undefined && !hide.said[hide.wp]) { hide.said[hide.wp] = true; api.caption(C(w.say).text, 3200); }
         hide.pause += dt;
         const extra = w.near && w.near === hide.spot ? 1.0 : 0; // he lingers by the place you are hiding
         if (hide.pause > w.pause + extra) { hide.pause = 0; hide.wp++; if (WP[hide.wp] && WP[hide.wp].up) { hide.upT = 0.001; } }

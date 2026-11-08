@@ -4,28 +4,15 @@ import { CASES } from './cases.js';
 import { HOME } from './home.js';
 import { Sound } from './audio.js';
 import { openPrint } from './fingerprint.js';
-import { Voices } from './voice.js';
 import { VERSION, NOTES } from './changelog.js';
 import { Pad, BTN } from './pad.js';
 import { CREDITS } from './credits.js';
-import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
-import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
-import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
-import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
-import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { settings, saveSettings, results, saveResults } from './settings.js';
+import { createComposer } from './postfx.js';
+import { makeRain, makeSnow } from './weather.js';
 
 const $ = (id) => document.getElementById(id);
 const sound = new Sound();
-const voices = new Voices();
-
-// ---------- settings ----------
-const settings = (() => {
-  const d = { bright: 1.3, sens: 1.0, vol: 0.8, quality: 'medium', qualityManual: false, fov: 70, invert: false, calm: false, sub: 1, pads: true };
-  try { return { ...d, ...JSON.parse(localStorage.getItem('hb_settings') || '{}') }; } catch { return d; }
-})();
-const saveSettings = () => { try { localStorage.setItem('hb_settings', JSON.stringify(settings)); } catch {} };
-const results = (() => { try { return JSON.parse(localStorage.getItem('hb_results') || '{}'); } catch { return {}; } })();
-const saveResults = () => { try { localStorage.setItem('hb_results', JSON.stringify(results)); } catch {} };
 
 // ---------- touch / mobile ----------
 // Touch mode: on-screen stick (left), drag to look (right), buttons. Turns on for phones/tablets,
@@ -60,25 +47,6 @@ camera.rotation.order = 'YXZ';
 addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); if (composer) composer.setSize(innerWidth, innerHeight); });
 
 // ---------- post-processing (Medium/High): bloom, then a film grade ----------
-// grade: cold shadows / warm highlights, gentle contrast, lens vignette, grain, slight colour fringing
-const GradeShader = {
-  uniforms: { tDiffuse: { value: null }, time: { value: 0 }, vignette: { value: 0.6 }, grain: { value: 0.045 }, aberr: { value: 0.0007 } },
-  vertexShader: 'varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
-  fragmentShader: `
-    uniform sampler2D tDiffuse; uniform float time, vignette, grain, aberr; varying vec2 vUv;
-    float hash(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
-    void main() {
-      vec2 d = vUv - 0.5; float r2 = dot(d, d);
-      vec3 col = vec3(texture2D(tDiffuse, vUv + d * aberr * 4.0).r, texture2D(tDiffuse, vUv).g, texture2D(tDiffuse, vUv - d * aberr * 4.0).b);
-      float l = dot(col, vec3(0.299, 0.587, 0.114));
-      col = mix(col, col * vec3(0.86, 0.98, 1.12), smoothstep(0.45, 0.0, l) * 0.7);
-      col = mix(col, col * vec3(1.08, 1.0, 0.88), smoothstep(0.3, 0.9, l) * 0.55);
-      col = (col - 0.5) * 1.07 + 0.5;
-      col *= 1.0 - vignette * smoothstep(0.08, 0.55, r2 * 1.7);
-      col += (hash(vUv * 1000.0 + time) - 0.5) * grain;
-      gl_FragColor = vec4(max(col, 0.0), 1.0);
-    }`,
-};
 let composer = null, renderPass = null, gradePass = null;
 function buildComposer() {
   if (composer) { composer.dispose(); composer = null; renderPass = null; gradePass = null; }
@@ -86,13 +54,7 @@ function buildComposer() {
   const css = !q.post && q.grain;
   $('grain').classList.toggle('hidden', !css); $('vignette').classList.toggle('hidden', !!q.post);
   if (!q.post || !renderer.capabilities.isWebGL2) return;
-  const rt = new THREE.WebGLRenderTarget(innerWidth, innerHeight, { type: THREE.HalfFloatType, samples: q.msaa || 0 });
-  composer = new EffectComposer(renderer, rt);
-  composer.setPixelRatio(renderer.getPixelRatio()); composer.setSize(innerWidth, innerHeight);
-  renderPass = new RenderPass(scene || new THREE.Scene(), camera); composer.addPass(renderPass);
-  composer.addPass(new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), q.bloom, 0.5, 0.9));
-  composer.addPass(new OutputPass());
-  gradePass = new ShaderPass(GradeShader); composer.addPass(gradePass);
+  ({ composer, renderPass, gradePass } = createComposer(renderer, scene || new THREE.Scene(), camera, q));
 }
 
 // flashlight on the camera
@@ -204,36 +166,13 @@ function disposeScene(s) {
   B.clearCache();
 }
 
-function makeSnow(count) {
-  const pos = new Float32Array(count * 3), seed = new Float32Array(count);
-  for (let i = 0; i < count; i++) { pos.set([(Math.random() - 0.5) * 36, Math.random() * 14, (Math.random() - 0.5) * 36], i * 3); seed[i] = Math.random() * 10; }
-  const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-  const fc = document.createElement('canvas'); fc.width = fc.height = 32; const fg = fc.getContext('2d');
-  const grd = fg.createRadialGradient(16, 16, 0, 16, 16, 16); grd.addColorStop(0, 'rgba(255,255,255,1)'); grd.addColorStop(0.5, 'rgba(255,255,255,0.6)'); grd.addColorStop(1, 'rgba(255,255,255,0)');
-  fg.fillStyle = grd; fg.fillRect(0, 0, 32, 32);
-  const pts = new THREE.Points(geo, new THREE.PointsMaterial({ color: 0xe6ecf2, size: 0.06, map: new THREE.CanvasTexture(fc), transparent: true, opacity: 0.9, depthWrite: false, fog: true }));
-  pts.frustumCulled = false; pts.userData.seed = seed; pts.userData.snow = true;
-  return pts;
-}
-function makeRain(count) {
-  const pos = new Float32Array(count * 6);
-  for (let i = 0; i < count; i++) {
-    const x = (Math.random() - 0.5) * 40, y = Math.random() * 20, z = (Math.random() - 0.5) * 40;
-    pos.set([x, y, z, x + 0.03, y + 0.45, z], i * 6);
-  }
-  const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-  const lines = new THREE.LineSegments(geo, new THREE.LineBasicMaterial({ color: 0x8796a8, transparent: true, opacity: 0.35, fog: true }));
-  lines.frustumCulled = false;
-  return lines;
-}
-
 // ---------- case lifecycle ----------
 function startCase(def, load = false, opts = {}) {
   sound.stopLoops();
   $('whatsnew').classList.add('hidden');
   disposeScene(scene);
   $('menu').classList.add('hidden'); $('pause').classList.add('hidden');
-  voices.stop(); $('danger').style.opacity = 0; $('jolt').className = '';
+  $('danger').style.opacity = 0; $('jolt').className = '';
   $('hideHud').classList.add('hidden'); $('slats').classList.remove('on'); $('tBreath').classList.add('hidden');
   scene = new THREE.Scene();
   scene.background = new THREE.Color(0x030407);
@@ -410,12 +349,10 @@ function playIntro(def) {
     const p = document.createElement('p'); p.textContent = t; p.className = i < 2 ? 'big' : '';
     p.style.animationDelay = `${i * 1.6}s`; lines.appendChild(p);
   });
-  voices.chain(def.intro.map((_, i) => `${def.id}.intro.${i}`), 500);
   const go = document.createElement('button'); go.className = 'btn ghost'; go.textContent = 'Begin investigation';
   go.style.animationDelay = `${def.intro.length * 1.6}s`; go.classList.add('fadein');
   go.onclick = () => {
     el.classList.add('hidden'); state = 'play'; $('hud').classList.remove('hidden');
-    voices.stop();
     if (TOUCH.on) goFullscreen();
     lock();
   };
@@ -461,10 +398,7 @@ const api = {
   toMenu: () => toMenu(),
   startCaseId: (id) => { const d = CASES.find((c) => c.id === id); if (d) startCase(d, !!readSave(id)); },
   get hard() { return !!settings.hard; },
-  // voice lines and scare effects
-  voice: (id, opts) => voices.play(id, opts),
-  hasVoice: (id) => voices.has(id),
-  stopVoice: () => voices.stop(),
+  // scare effects
   shake: (v) => { if (settings.calm) return; G.shake = Math.max(G.shake || 0, v); },
   get calm() { return !!settings.calm; },
   get opts() { return G.opts || {}; },
@@ -478,10 +412,9 @@ const api = {
   setEye(h) { G.eyeH = h; },
   weather(on) { if (G.rain) G.rain.visible = on; },
   holdingBreath: () => !!(keys.Space || TOUCH.breath || PADIN.breath),
-  caption(text, vo, ms = 3000) {
+  caption(text, ms = 3000) {
     const cap = $('caption'); cap.textContent = text; cap.classList.add('on');
     clearTimeout(G.capT); G.capT = setTimeout(() => { if (!G.cut) cap.classList.remove('on'); }, ms);
-    if (vo) voices.play(vo);
   },
   hideHud(o) {
     const el = $('hideHud');
@@ -567,25 +500,25 @@ function openDialog(w) {
   openUI('dialog');
   $('dName').textContent = w.name;
   dlg = { w, lines: null, i: 0, typing: null, done: null };
-  showLines(w.intro, () => showTopics(), w.intro.map((_, i) => `${w.id}.intro.${i}`));
+  showLines(w.intro, () => showTopics());
 }
 function typeText(el, text) {
   clearInterval(dlg.typing); el.textContent = ''; let i = 0;
   dlg.full = text;
   dlg.typing = setInterval(() => { i += 2; el.textContent = text.slice(0, i); if (i >= text.length) { clearInterval(dlg.typing); dlg.typing = null; } }, 18);
 }
-function showLines(lines, done, ids = []) {
-  dlg.lines = lines; dlg.i = 0; dlg.done = done; dlg.ids = ids;
+function showLines(lines, done) {
+  dlg.lines = lines; dlg.i = 0; dlg.done = done;
   const opts = $('dOpts'); opts.innerHTML = '';
   const btn = document.createElement('button'); btn.className = 'opt cont'; btn.textContent = 'Continue  ▸';
   btn.onclick = advance; opts.appendChild(btn);
-  typeText($('dText'), lines[0]); sound.page(); voices.play(ids[0]);
+  typeText($('dText'), lines[0]); sound.page();
 }
 function advance() {
   if (!dlg || !dlg.lines) return;
   if (dlg.typing) { clearInterval(dlg.typing); dlg.typing = null; $('dText').textContent = dlg.full; return; }
   dlg.i++;
-  if (dlg.i < dlg.lines.length) { typeText($('dText'), dlg.lines[dlg.i]); sound.page(); voices.play(dlg.ids[dlg.i]); return; }
+  if (dlg.i < dlg.lines.length) { typeText($('dText'), dlg.lines[dlg.i]); sound.page(); return; }
   const d = dlg.done; dlg.lines = null; d && d();
 }
 function showTopics() {
@@ -598,13 +531,12 @@ function showTopics() {
     b.innerHTML = `<span class="k">${n + 1}</span>${t.q}`;
     b.onclick = () => {
       G.asked.add(key);
-      const ti = w.topics.indexOf(t);
-      showLines(t.a, () => { if (t.gives) api.give(t.gives); if (t.then) t.then(api); refresh(); showTopics(); }, t.a.map((_, i) => `${w.id}.t${ti}.${i}`));
+      showLines(t.a, () => { if (t.gives) api.give(t.gives); if (t.then) t.then(api); refresh(); showTopics(); });
     };
     opts.appendChild(b);
   });
   const leave = document.createElement('button'); leave.className = 'opt leave'; leave.innerHTML = '<span class="k">Esc</span>Leave';
-  leave.onclick = () => { dlg = null; voices.stop(); closeUI(); }; opts.appendChild(leave);
+  leave.onclick = () => { dlg = null; closeUI(); }; opts.appendChild(leave);
   const pending = w.topics.length - avail.length;
   $('dText').innerHTML = `<i class="muted">What do you ask?${pending ? ' (Some questions open up once you know more.)' : ''}</i>`;
 }
@@ -670,13 +602,13 @@ function openInterrogation() {
   const I = G.def.interrogation, st = intState(I);
   const room = buildInterviewRoom(I);
   room.light.cur = 6;
-  iv = { I, st, mode: 'lines', lines: [], ids: [], li: 0, after: null, idx: 0, saved: { pos: G.pos.clone(), yaw: G.yaw, pitch: G.pitch, flash: G.flashOn } };
+  iv = { I, st, mode: 'lines', lines: [], li: 0, after: null, idx: 0, saved: { pos: G.pos.clone(), yaw: G.yaw, pitch: G.pitch, flash: G.flashOn } };
   G.flashOn = false; flash.intensity = 0;
   G.camOverride = { pos: new THREE.Vector3(IR.x, 1.3, IR.z + 1.55), look: new THREE.Vector3(IR.x, 1.25, IR.z - 1.0) };
   openUI('interro');
   $('iWho').textContent = I.who;
   renderStrikes();
-  sayLines(I.intro, I.intro.map((_, i) => `${I.id}.intro.${i}`), () => showStatement(0));
+  sayLines(I.intro, () => showStatement(0));
 }
 function renderStrikes() { const n = iv.st.strikes; $('iStrikes').textContent = '●'.repeat(3 - n) + '○'.repeat(n); }
 function setButtons(mode) {
@@ -684,15 +616,15 @@ function setButtons(mode) {
   $('iCont').classList.toggle('hidden', mode !== 'lines');
   $('iPick').classList.add('hidden');
 }
-function sayLines(lines, ids, done) {
-  iv.mode = 'lines'; iv.lines = lines; iv.ids = ids; iv.li = 0; iv.after = done;
+function sayLines(lines, done) {
+  iv.mode = 'lines'; iv.lines = lines; iv.li = 0; iv.after = done;
   setButtons('lines'); showLine();
 }
 function showLine() {
   const t = iv.lines[iv.li];
   $('iLine').textContent = t.replace(/^[A-Z]+:\s*/, ''); $('iLine').className = /^[A-Z]+:/.test(t) ? '' : 'narr';
   $('iCount').textContent = '';
-  voices.play(iv.ids[iv.li]); sound.page();
+  sound.page();
 }
 function contLine() {
   if (!iv || iv.mode !== 'lines') return;
@@ -707,11 +639,10 @@ function showStatement(i) {
   $('iLine').innerHTML = broken ? `<s>${s.t}</s><br><span class="after">${s.after}</span>` : `“${s.t}”`;
   $('iLine').className = 'testimony';
   $('iCount').textContent = `Statement ${iv.idx + 1} of ${n}${broken ? ' · broken' : ''}`;
-  if (!broken) voices.play(`${I.id}.s${iv.idx}`);
 }
 function pressStatement() {
   const s = iv.I.statements[iv.idx];
-  sayLines(s.press, s.press.map((_, k) => `${iv.I.id}.p${iv.idx}.${k}`), () => showStatement(iv.idx));
+  sayLines(s.press, () => showStatement(iv.idx));
 }
 function openPicker() {
   const pick = $('iPick'); pick.innerHTML = '<div class="muted">Present which clue against this statement?</div>';
@@ -724,6 +655,7 @@ function openPicker() {
   const back = document.createElement('button'); back.className = 'opt leave'; back.textContent = 'Back'; back.onclick = () => showStatement(iv.idx); pick.appendChild(back);
   pick.classList.remove('hidden');
   for (const id of ['iPrev', 'iNext', 'iPress', 'iPresent']) $(id).classList.add('hidden');
+  pick.scrollIntoView({ block: 'nearest' }); // short (phone) screens: bring the list into view
 }
 function presentClue(id) {
   const I = iv.I, s = I.statements[iv.idx], st = iv.st;
@@ -733,26 +665,25 @@ function presentClue(id) {
     const stamp = $('lieStamp'); stamp.className = ''; void stamp.offsetWidth; stamp.className = 'on';
     sound.stinger(); api.shake(0.5);
     const left = I.statements.some((x, k) => x.lie && !st.broken.includes(k));
-    sayLines(s.crack, s.crack.map((_, k) => `${I.id}.c${iv.idx}.${k}`), () => {
+    sayLines(s.crack, () => {
       if (left) { showStatement(iv.idx + 1); return; }
       st.state = 'done';
-      sayLines(I.done, I.done.map((_, k) => `${I.id}.done.${k}`), () => { api.give(I.gives); closeInterrogation(); });
+      sayLines(I.done, () => { api.give(I.gives); closeInterrogation(); });
     });
     return;
   }
   st.strikes++; renderStrikes(); sound.burst(0.3, 300, 0.3); api.shake(0.25);
   if (st.strikes >= 3) {
     st.state = 'failed';
-    sayLines(I.fail, I.fail.map((_, k) => `${I.id}.fail.${k}`), () => closeInterrogation());
+    sayLines(I.fail, () => closeInterrogation());
     return;
   }
   const k = (st.strikes - 1) % I.wrong.length;
-  sayLines([I.wrong[k]], [`${I.id}.wrong.${k}`], () => showStatement(iv.idx));
+  sayLines([I.wrong[k]], () => showStatement(iv.idx));
 }
 function closeInterrogation() {
   if (!iv) return;
   const s = iv.saved; iv = null;
-  voices.stop();
   if (G.room) G.room.light.cur = 0;
   G.camOverride = null; G.pos.copy(s.pos); G.yaw = s.yaw; G.pitch = s.pitch; G.flashOn = s.flash;
   closeUI();
@@ -869,16 +800,15 @@ function accuse(s, chosen = []) {
   const body = $('eBody'); body.innerHTML = '';
   end.text.forEach((t, i) => { const p = document.createElement('p'); p.textContent = t; p.style.animationDelay = `${0.8 + i * 1.8}s`; body.appendChild(p); });
   $('eActs').style.animationDelay = `${1 + end.text.length * 1.8}s`;
-  voices.chain(end.text.map((_, i) => (good ? `${def.id}.good.${i}` : weak ? `${def.id}.weak.${i}` : `${def.id}.bad.${s.id}.${i}`)), 450);
   G.endingKind = good ? 'good' : weak ? 'weak' : 'bad';
   $('eEpilogue').classList.toggle('hidden', def.id !== 'ash');
 }
-$('eEpilogue').onclick = () => { voices.stop(); $('ending').classList.add('hidden'); startCase(HOME, false, { epilogue: G.endingKind }); };
+$('eEpilogue').onclick = () => { $('ending').classList.add('hidden'); startCase(HOME, false, { epilogue: G.endingKind }); };
 $('creditsSkip').onclick = endCredits;
 $('creditsBtn').onclick = () => { sound.init(); rollCredits(); };
-$('eHome').onclick = () => { voices.stop(); $('ending').classList.add('hidden'); startCase(HOME); };
-$('eMenu').onclick = () => { voices.stop(); $('ending').classList.add('hidden'); toMenu(); };
-$('eRetry').onclick = () => { voices.stop(); $('ending').classList.add('hidden'); clearSave(G.def.id); startCase(G.def); };
+$('eHome').onclick = () => { $('ending').classList.add('hidden'); startCase(HOME); };
+$('eMenu').onclick = () => { $('ending').classList.add('hidden'); toMenu(); };
+$('eRetry').onclick = () => { $('ending').classList.add('hidden'); clearSave(G.def.id); startCase(G.def); };
 
 // ---------- cutscene ----------
 function startCutscene(steps, done) {
@@ -906,9 +836,6 @@ function nextShot() {
   c.dur = s.dur || s.hold || 2;
   const cap = $('caption');
   if (s.text) { cap.textContent = s.text; cap.classList.add('on'); } else cap.classList.remove('on');
-  // a voiced caption holds the shot until the line has finished (browser recordings often
-  // don't report their length, so wait for the actual end rather than trusting duration)
-  c.voice = s.vo && voices.has(s.vo) ? voices.play(s.vo) : null;
   s.onStart && s.onStart();
 }
 function updateCut(dt) {
@@ -916,11 +843,7 @@ function updateCut(dt) {
   const k = Math.min(1, c.t / c.dur), e = k * k * (3 - 2 * k);
   camera.position.lerpVectors(c.fromP, c.toP, e);
   camera.quaternion.slerpQuaternions(c.fromQ, c.toQ, e);
-  if (c.t >= c.dur) {
-    const v = c.voice;
-    if (v && !v.ended && !v.paused && c.t < c.dur + 15) return;
-    nextShot();
-  }
+  if (c.t >= c.dur) nextShot();
 }
 
 // ---------- menu / warning ----------
@@ -933,7 +856,7 @@ function toMenu() {
   ['dialog', 'inspect', 'notebook', 'board', 'printer'].forEach((id) => $(id).classList.add('hidden'));
   if (G) G.ui = null;
   if (locked()) document.exitPointerLock();
-  voices.stop(); $('danger').style.opacity = 0; $('jolt').className = '';
+  $('danger').style.opacity = 0; $('jolt').className = '';
   const list = $('caseList'); list.innerHTML = '';
   for (const def of CASES) {
     const r = results[def.id];
@@ -989,12 +912,7 @@ for (const [id, key, after] of [['sInvert', 'invert'], ['sCalm', 'calm'], ['wCal
   $(id).checked = key === 'pads' ? settings.pads !== false : !!settings[key];
   $(id).onchange = () => { settings[key] = $(id).checked; saveSettings(); if (key === 'calm') { $('sCalm').checked = $('wCalm').checked = settings.calm; if (G) toast('Reduce flashing applies fully from the next case or scene.'); } if (after) after(settings[key]); };
 }
-bindSlider('sVol', 'vol', (v) => { sound.setVolume(v); voices.setVolume(v); });
-voices.setVolume(settings.vol);
-voices.on = settings.voices !== false;
-$('sVoices').checked = voices.on;
-$('sVoices').onchange = () => { settings.voices = voices.on = $('sVoices').checked; if (!voices.on) voices.stop(); saveSettings(); };
-voices.ready.then(() => { $('voiceCount').textContent = voices.count ? `${voices.count} recorded lines` : 'none recorded yet'; });
+bindSlider('sVol', 'vol', (v) => sound.setVolume(v));
 function syncQualityUI() { $('sQuality').value = settings.quality; }
 syncQualityUI();
 $('sQuality').onchange = () => { const was = settings.quality; settings.quality = $('sQuality').value; settings.qualityManual = true; saveSettings(); applyQuality(); if (G && state === 'play' && (was === 'low') !== (settings.quality === 'low')) toast('Some changes apply fully the next time you start a case'); };
@@ -1014,7 +932,7 @@ addEventListener('keydown', (e) => {
   if (G.cut) return;
   if (G.ui === 'dialog') {
     if (['Space', 'Enter', 'KeyE'].includes(e.code)) { if (dlg && dlg.lines) advance(); e.preventDefault(); }
-    else if (e.code === 'Escape' && dlg && !dlg.lines) { dlg = null; voices.stop(); closeUI(); }
+    else if (e.code === 'Escape' && dlg && !dlg.lines) { dlg = null; closeUI(); }
     else if (/^Digit[1-9]$/.test(e.code) && dlg && !dlg.lines) { const b = $('dOpts').querySelectorAll('.opt:not(.leave)')[+e.code.slice(5) - 1]; b && b.click(); }
     return;
   }
@@ -1124,8 +1042,8 @@ function updateTouchAct(best) {
     if (state === 'play' && G && !G.cut && !G.ui) fn();
   });
   tap('tAct', () => { if (G.nearest) { resetStick(); useNearest(); } });
-  tap('tFlash', () => api.flash(!G.flashOn));
-  tap('tNote', () => { resetStick(); openNotebook(); });
+  tap('tFlash', () => { tutMark('flash'); api.flash(!G.flashOn); });
+  tap('tNote', () => { tutMark('notebook'); resetStick(); openNotebook(); });
   tap('tPause', () => { resetStick(); showPause(true); });
   // hold-breath button for touch
   const tb = $('tBreath');
@@ -1134,7 +1052,6 @@ function updateTouchAct(best) {
   // keep the page from scrolling or zooming during play
   document.addEventListener('touchmove', (e) => { if (state === 'play' && e.target.closest && e.target.closest('#touch')) e.preventDefault(); }, { passive: false });
 })();
-
 
 // ---------- v4: gamepad ----------
 const pad = new Pad(); pad.enabled = settings.pads !== false;
@@ -1155,7 +1072,7 @@ function padBack() {
   if (!$('whatsnew').classList.contains('hidden')) { $('whatsnew').classList.add('hidden'); return; }
   if (!$('credits').classList.contains('hidden')) { endCredits(); return; }
   if (!G) return;
-  if (G.ui === 'dialog') { if (dlg && !dlg.lines) { dlg = null; voices.stop(); closeUI(); } return; }
+  if (G.ui === 'dialog') { if (dlg && !dlg.lines) { dlg = null; closeUI(); } return; }
   if (G.ui === 'inspect') { finishInspect(); return; }
   if (G.ui === 'interro') { closeInterrogation(); return; }
   if (G.ui) { closeUI(); return; }
@@ -1238,7 +1155,7 @@ function rollCredits() {
   const c = CREDITS, el = $('creditsRoll');
   const sec = (h, items) => (items && items.length ? `<h4>${h}</h4>` + items.map((x) => `<p>${typeof x === 'string' ? x : `${x.role} <span>${x.name}</span>`}</p>`).join('') : '');
   el.innerHTML = `<h2>${c.title}</h2><p class="by">A game by</p><h3>${c.creator}</h3>`
-    + sec('Voice cast', c.cast) + sec('Playtesters', c.playtesters) + sec('Thanks', c.thanks) + sec('', c.tech)
+    + sec('Playtesters', c.playtesters) + sec('Thanks', c.thanks) + sec('', c.tech)
     + `<p class="last">Every case closes.<br>None of them end.</p>`;
   el.style.animation = 'none'; void el.offsetWidth; el.style.animation = '';
   $('credits').classList.remove('hidden');
@@ -1443,5 +1360,5 @@ requestAnimationFrame(frame);
   g.putImageData(img, 0, 0); $('grain').style.backgroundImage = `url(${c.toDataURL()})`;
 })();
 
-// debug / test hook (used by headless playtests)
-window.__hb = { CASES, startCase, api, toMenu, camera, renderer, settings, applyQuality, voices, breath: (v) => { TOUCH.breath = v; }, get G() { return G; }, get state() { return state; } };
+// test hook for the automated playtests in tools/playtest (only with ?test in the URL)
+if (new URLSearchParams(location.search).has('test')) window.__hb = { CASES, startCase, api, toMenu, camera, renderer, settings, applyQuality, breath: (v) => { TOUCH.breath = v; }, get G() { return G; }, get state() { return state; } };

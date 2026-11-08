@@ -6,7 +6,7 @@ import { ASHGROVE } from './case4.js';
 /* ============================================================
    CASE 1 — CMARY TOWN — SEPTEMBER 9TH
    ============================================================ */
-// Cutscene captions. A caption's position here is its voice id: <case>.<scene>.<index>
+// Cutscene captions, by case and scene.
 const CAP = {
   cmary: {
     shed: ['The padlock has been cut.', '', 'A yellow raincoat.', 'Lily Rowe. Eleven years old.', 'The knife is still in her back.', 'She was gone long before you got here.'],
@@ -16,7 +16,7 @@ const CAP = {
     arrest: ['HOLT: Police! On the ground! NOW!', 'He stops. He tilts his head at you, and smiles.', 'Then he kneels in the road, laughing, while Holt cuffs him.', "HOLT: He won't give a name. I can hold him till morning.", 'HOLT: Put it together on the board, Detective. Charge the right person, or he walks.'],
   },
 };
-const C = (c, scene, i) => ({ text: CAP[c][scene][i], vo: `${c}.${scene}.${i}` });
+const C = (c, scene, i) => ({ text: CAP[c][scene][i] });
 
 const CMARY = {
   get captions() { return CAP.cmary; },
@@ -753,17 +753,16 @@ const WING = {
       }
     });
     function startChewing() {
-      if (api.hasVoice('man.chew')) { api.voice('man.chew', { loop: true }); chew = true; return; }
       chew = setInterval(() => { if (Math.random() < 0.75) api.sound.chew(); }, 260);
     }
-    function stopChewing() { if (chew === true) api.stopVoice(); else clearInterval(chew); chew = null; }
+    function stopChewing() { clearInterval(chew); chew = null; }
     function jumpscare() {
       stopChewing();
       placeStranger(MX0 + 0.42, -53.5, -Math.PI / 2); lump.visible = false;
       sSpine.rotation.set(0.12, 0, 0); sHead.rotation.set(0.05, 0, 0.22); headTurn = 1;
       poseStand(); poseReach();
       tubeOn = true;
-      api.sound.scream(); api.voice('man.scream');
+      api.sound.scream();
       api.shake(1.4); api.jolt('white');
     }
     function morgueScene() {
@@ -823,7 +822,7 @@ const WING = {
       if (d < 3) api.shake(0.35 * (1 - d / 3));
       // every few seconds he lunges: a short burst of speed with a snarl
       chase.nextLunge -= dt;
-      if (chase.nextLunge <= 0) { chase.lunge = 0.55; chase.nextLunge = 3.5 + Math.random() * 2.5; if (!api.voice('man.breath')) api.sound.growl(); }
+      if (chase.nextLunge <= 0) { chase.lunge = 0.55; chase.nextLunge = 3.5 + Math.random() * 2.5; api.sound.growl(); }
       chase.lunge = Math.max(0, chase.lunge - dt);
       const speed = d > 14 ? 6.2 : chase.lunge > 0 ? 5.9 : 4.75; // faster than walking, a little slower than running
       const stepLen = Math.min(d, speed * dt);
@@ -841,7 +840,7 @@ const WING = {
     function caught() {
       chase.on = false;
       api.danger(0); api.jolt('red'); api.shake(1.2);
-      api.sound.scream(); api.voice('man.scream');
+      api.sound.scream();
       api.blackout('He caught you.', 2300, () => startChase(false));
     }
     function arrest() {
@@ -857,7 +856,7 @@ const WING = {
       api.cutscene([
         { pos: [HOLT.x - 1.0, 1.75, HOLT.z - 0.9], look: [sx, 1.55, sz], dur: 0.9, ...C('wing', 'arrest', 0), onStart: () => api.sound.click() },
         { hold: 2.6, ...C('wing', 'arrest', 1) },
-        { hold: 3.2, ...C('wing', 'arrest', 2), onStart: () => { poseKneel(); sInner.position.y = -0.47; sSpine.rotation.set(0.08, 0, 0); sHead.rotation.set(0.15, 0, 0.35); if (!api.voice('man.laugh')) api.sound.growl(); } },
+        { hold: 3.2, ...C('wing', 'arrest', 2), onStart: () => { poseKneel(); sInner.position.y = -0.47; sSpine.rotation.set(0.08, 0, 0); sHead.rotation.set(0.15, 0, 0.35); api.sound.growl(); } },
         { pos: [sx - 2.0, 2.1, sz - 3.4], look: [HOLT.x - 0.9, 1.0, HOLT.z - 1.5], dur: 1.8, ...C('wing', 'arrest', 3) },
         { hold: 3.6, ...C('wing', 'arrest', 4) },
       ], () => {
