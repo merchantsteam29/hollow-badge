@@ -2,6 +2,15 @@
 
 Play: https://merchantsteam29.github.io/hollow-badge/
 
+## v4.0: The Final Cut (2026-11-07)
+
+- A living title screen: the menu drifts down a rainy Ashgrove street at night.
+- An epilogue after the finale, and a credits roll.
+- A white lily is hidden somewhere off the path in Cases 01, 02 and 03. Find all three for the true ending.
+- Reduce flashing (on the content warning and in settings): calms lightning, jumpscare flashes, police lights, flickering lamps and screen shake.
+- New settings: subtitle size, field of view, invert look, controllers on/off. A short how-to-play checklist the first time you play.
+- Gamepad support: left stick to move, right stick to look, A to examine, X flashlight, Y notebook, LT to hold your breath, Start to pause, and the D-pad works every menu.
+
 ## v3.0.2: Fix: home objectives (2026-11-07)
 
 - The apartment now follows what you have done: messages, mail, then the case wall. With Cases 01 to 03 finished, the payphone downstairs rings and the door takes you straight into Case 04.

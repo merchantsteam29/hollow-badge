@@ -37,6 +37,7 @@
     <p><b>This game is very dark.</b></p>
     <p>It contains murder, violence against children, death and other disturbing themes, along with frightening scenes. Nothing graphic is shown.</p>
     <p>It is meant for mature players (16+). If subjects like these are hard for you right now, it is fine to stop here.</p>
+    <label class="check warncheck"><input id="wCalm" type="checkbox"> Reduce flashing lights and screen shake (photosensitivity)</label>
     <div class="row">
       <button id="warnOk" class="btn">I understand. Continue.</button>
       <button id="warnNo" class="btn ghost">Leave</button>
@@ -48,9 +49,10 @@
 <div id="menu" class="screen hidden">
   <div class="logo">HOLLOW<span>BADGE</span></div>
   <div class="tag">Every case closes. None of them end.</div>
-  <div class="menurow"><button id="homeBtn" class="btn ghost news">Go home</button><button id="newsBtn" class="btn ghost news">What's new · <span id="verLabel"></span></button></div>
+  <div class="menurow"><button id="homeBtn" class="btn ghost news">Go home</button><button id="creditsBtn" class="btn ghost news">Credits</button><button id="newsBtn" class="btn ghost news">What's new · <span id="verLabel"></span></button></div>
   <div id="gpuWarn" class="hidden"><b>Chrome isn't using your graphics card</b>, so the game will be choppy, even on a gaming PC. To fix it, open Chrome's <b>Settings → System</b>, turn on <b>Use graphics acceleration when available</b>, and click <b>Relaunch</b>. If it's already on, type <b>chrome://gpu</b> in the address bar and check whether WebGL says Hardware accelerated.</div>
   <div id="caseList"></div>
+  <div id="lilyCount" class="lilies"></div>
   <label class="hardToggle"><input type="checkbox" id="hardMode"> Detective mode: no objectives, no glinting clues</label>
   <div class="controls desk">WASD move · Shift run · Mouse look · E / click examine &amp; talk · F flashlight · Tab notebook · Esc pause</div>
   <div class="controls mob">Left thumb: move (push far to run) · Right thumb: look · tap the button that appears to examine &amp; talk</div>
@@ -78,6 +80,7 @@
   <div id="toasts"></div>
   <div id="prompt" class="hidden"></div>
   <div id="fps" class="hidden"></div>
+  <div id="tut" class="hidden"></div>
   <div id="hideHud" class="hidden"><div id="hideText"></div><div id="breathBar"><i id="breathFill"></i></div></div>
   <div id="keyhint">E examine · F flashlight · Tab notebook</div>
   <div id="touch">
@@ -107,7 +110,12 @@
     <label class="check"><input id="sFps" type="checkbox"> Show FPS</label>
     <label class="check"><input id="sVoices" type="checkbox" checked> Voice acting <span class="muted" id="voiceCount"></span></label>
     <label>Brightness <input id="sBright" type="range" min="0.5" max="2.2" step="0.05"></label>
-    <label>Mouse sensitivity <input id="sSens" type="range" min="0.3" max="2.5" step="0.05"></label>
+    <label>Look sensitivity <input id="sSens" type="range" min="0.3" max="2.5" step="0.05"></label>
+    <label>Field of view <input id="sFov" type="range" min="55" max="100" step="1"></label>
+    <label>Subtitle size <select id="sSub"><option value="0.85">Small</option><option value="1">Normal</option><option value="1.3">Large</option><option value="1.6">Extra large</option></select></label>
+    <label class="check"><input id="sInvert" type="checkbox"> Invert look up/down</label>
+    <label class="check"><input id="sCalm" type="checkbox"> Reduce flashing and screen shake</label>
+    <label class="check"><input id="sPads" type="checkbox"> Controllers ON</label>
     <label>Volume <input id="sVol" type="range" min="0" max="1" step="0.05"></label>
     <button id="quit" class="btn ghost">Quit to case files</button>
   </div>
@@ -185,12 +193,18 @@
   </div>
 </div>
 
+<!-- CREDITS -->
+<div id="credits" class="screen hidden">
+  <div id="creditsRoll"></div>
+  <button id="creditsSkip" class="btn ghost">Skip</button>
+</div>
+
 <!-- ENDING -->
 <div id="ending" class="screen hidden">
   <div class="endbox">
     <div id="eTitle"></div>
     <div id="eBody"></div>
-    <div id="eActs" class="row"><button id="eHome" class="btn">Go home</button><button id="eMenu" class="btn ghost">Case files</button><button id="eRetry" class="btn ghost">Replay case</button></div>
+    <div id="eActs" class="row"><button id="eEpilogue" class="btn hidden">Epilogue</button><button id="eHome" class="btn">Go home</button><button id="eMenu" class="btn ghost">Case files</button><button id="eRetry" class="btn ghost">Replay case</button></div>
   </div>
 </div>
 

@@ -1,4 +1,5 @@
 :root {
+  --sub: 1;
   --ink: #d9d2c3; --dim: #8a8377; --blood: #8a1418; --amber: #d9a45a; --bg: #030407;
   --paper: #1a1713; --line: rgba(217, 210, 195, 0.14);
 }
@@ -44,12 +45,33 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); c
 #lieStamp.on { animation: stamp 1.6s ease-out forwards; }
 @keyframes stamp { 0% { opacity: 0; transform: translate(-50%, -50%) rotate(-12deg) scale(2.5); } 12% { opacity: 1; transform: translate(-50%, -50%) rotate(-12deg) scale(1); } 75% { opacity: 1; } 100% { opacity: 0; transform: translate(-50%, -50%) rotate(-12deg) scale(1); } }
 body.touch #interro .opt { font-size: 14px; }
+/* v4 */
+#dText { font-size: calc(22px * var(--sub)) !important; }
+#iBody p { font-size: calc(20px * var(--sub)) !important; }
+#iLine { font-size: calc(21px * var(--sub)) !important; }
+#menu.title { background: radial-gradient(ellipse at 50% 42%, rgba(4,5,10,0.25), rgba(0,0,0,0.82) 78%); }
+.lilies { margin-top: 16px; font-family: 'Special Elite', monospace; font-size: 13px; color: #e8e4d8; }
+.warncheck { display: flex; gap: 8px; align-items: center; font-size: 15px; margin: 6px 0 0; cursor: pointer; }
+#tut { position: fixed; left: 20px; bottom: 44px; background: rgba(10,9,8,0.82); border-left: 3px solid var(--amber); padding: 10px 14px; font-family: 'Special Elite', monospace; font-size: 14px; line-height: 1.6; pointer-events: none; }
+#tut b { font-family: 'Oswald', sans-serif; letter-spacing: 0.2em; font-weight: 400; color: var(--amber); }
+#tut .done { color: var(--dim); text-decoration: line-through; }
+.padfocus { outline: 3px solid var(--amber) !important; outline-offset: 2px; }
+#credits { background: #000; z-index: 45; overflow: hidden; justify-content: flex-start; }
+#creditsRoll { text-align: center; animation: roll 48s linear forwards; margin-top: 100vh; }
+#creditsRoll h2 { font-family: 'Oswald', sans-serif; letter-spacing: 0.3em; font-size: 54px; margin: 0 0 30px; }
+#creditsRoll h3 { font-family: 'Oswald', sans-serif; letter-spacing: 0.15em; font-size: 30px; margin: 0 0 50px; color: var(--amber); }
+#creditsRoll h4 { font-family: 'Oswald', sans-serif; font-weight: 400; letter-spacing: 0.25em; color: var(--dim); margin: 40px 0 10px; }
+#creditsRoll p { font-size: 20px; margin: 6px 0; } #creditsRoll p span { color: var(--amber); margin-left: 10px; }
+#creditsRoll .by { color: var(--dim); font-style: italic; }
+#creditsRoll .last { margin-top: 80px; font-family: 'Special Elite', monospace; font-size: 22px; line-height: 1.6; }
+@keyframes roll { from { transform: translateY(0); } to { transform: translateY(-190vh); } }
+#creditsSkip { position: fixed; right: 20px; bottom: 20px; }
 #blackout { position: fixed; inset: 0; z-index: 35; background: #000; display: flex; align-items: center; justify-content: center; font-family: 'Special Elite', monospace; font-size: clamp(22px, 3vw, 34px); color: #c0262c; letter-spacing: 0.08em; opacity: 0; pointer-events: none; transition: opacity 0.2s; }
 #blackout.on { opacity: 1; }
 #letterbox i { position: fixed; left: 0; right: 0; height: 0; background: #000; z-index: 5; transition: height 0.8s ease; }
 #letterbox i:first-child { top: 0; } #letterbox i:last-child { bottom: 0; }
 #letterbox.on i { height: 11vh; }
-#caption { position: fixed; left: 0; right: 0; bottom: 14vh; text-align: center; z-index: 6; font-family: 'Special Elite', monospace; font-size: clamp(18px, 2.2vw, 28px); letter-spacing: 0.04em; opacity: 0; transition: opacity 0.9s; text-shadow: 0 2px 12px #000; padding: 0 16px; }
+#caption { position: fixed; left: 0; right: 0; bottom: 14vh; text-align: center; z-index: 6; font-family: 'Special Elite', monospace; font-size: calc(clamp(18px, 2.2vw, 28px) * var(--sub)); letter-spacing: 0.04em; opacity: 0; transition: opacity 0.9s; text-shadow: 0 2px 12px #000; padding: 0 16px; }
 #caption.on { opacity: 1; }
 
 .screen { position: fixed; inset: 0; z-index: 20; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 16px; }
@@ -279,3 +301,12 @@ body.touch .opt .k { display: none; }
 #board .panel > .row { position: sticky; bottom: -26px; z-index: 2; margin: 18px -30px -26px; padding: 14px 30px; background: linear-gradient(rgba(15,11,7,0.85), #0f0b07 40%); }
 #bSuspects { padding-bottom: 6px; }
 #newsClose { position: sticky; bottom: -26px; width: 100%; }
+
+/* v4: the menu holds four cases now; start at the top and scroll instead of clipping the logo */
+#menu { justify-content: flex-start; overflow-y: auto; padding-top: 5vh; padding-bottom: 4vh; }
+#menu .logo { font-size: clamp(42px, 7vw, 92px); }
+#menu .tag { margin: 8px 0 18px; }
+#caseList { max-width: 1180px; }
+.casecard { width: min(270px, 90vw); padding: 16px 18px; }
+.casecard .ctitle { font-size: 24px; }
+.casecard .cblurb { font-size: 16px; }

@@ -9,7 +9,7 @@ Hollow Badge is a first-person 3D detective game that runs in the browser. You w
 - **Case 03: The Long Winter.** Harrow Falls, snowed in for nine days. Three people missing.
 - **Case 04: The Collector.** The finale, in your own city.
 
-**Play:** https://merchantsteam29.github.io/hollow-badge/ (current version: v3.0.2, see [CHANGELOG.md](CHANGELOG.md))
+**Play:** https://merchantsteam29.github.io/hollow-badge/ (current version: v4.0, see [CHANGELOG.md](CHANGELOG.md))
 
 **Run locally:** run `node serve.js`, then open http://localhost:8080
 
@@ -27,3 +27,11 @@ To add the recordings to the game:
 3. Commit and push.
 
 Any line nobody recorded stays silent and shows its subtitle as usual. Players can turn voices off in the pause menu.
+
+## Credits
+
+Edit `credits.js` to add your voice cast and playtesters to the credits roll (empty sections are skipped).
+
+## Controllers
+
+Standard gamepads work (left stick move, right stick look, A examine, X flashlight, Y notebook, LT/RB hold breath, Start pause, D-pad for menus). Wheels, joysticks and other devices that the browser reports as gamepads are ignored, and a stick only counts once it has been seen centred. Controllers can be turned off in the pause menu.

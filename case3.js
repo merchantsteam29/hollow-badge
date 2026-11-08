@@ -460,6 +460,11 @@ export const HARROW = {
       hide.beat = (hide.beat || 0) - dt; if (hide.beat <= 0) { hide.beat = 0.35 + dist * 0.12; api.sound.heartbeat(1); }
       hide.step = (hide.step || 0) - dt; if (hide.step <= 0 && d > 0.05) { hide.step = 0.55; api.sound.at(walt.position, () => api.sound.step(false)); }
     });
+    if (!api.hasSecret('harrow')) {
+      const lily = B.lily(19, -60.5);
+      api.interact({ pos: [19, 0.3, -60.5], radius: 1.8, label: 'A white lily', cond: () => !api.hasSecret('harrow'),
+        use: () => { lily.visible = false; api.secret('harrow'); api.inspect({ title: 'A white lily', text: ["Out at the far edge of the frozen lake, a white lily lies on the ice, as if someone walked all this way just to leave it.","Tied to the stem, a typed card: For the one who looks."] }); } });
+    }
     api.sound.loopAt([8.4, 3.7, 14], 'hum');
     api.onRestore(() => {
       if (api.flags.meeting) { walt.position.set(-7.4, 0, 17.6); walt.rotation.y = Math.PI / 2; }

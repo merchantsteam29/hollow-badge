@@ -114,4 +114,14 @@ export function openPrint(host, { seed = 7, scar = false, surface = 'metal' }, o
   cv.addEventListener('pointerleave', () => { mx = -99; render(); });
   btn.addEventListener('click', () => onDone && onDone());
   render();
+  // gamepad: left stick moves the brush, A brushes
+  return {
+    pad(dx, dy, brushing) {
+      if (mx < 0) { mx = S / 2; my = S / 2; }
+      mx = Math.max(0, Math.min(S, mx + dx * 6)); my = Math.max(0, Math.min(S, my + dy * 6));
+      if (brushing) brush(mx, my);
+      render();
+      if (done && brushing) btn.focus();
+    },
+  };
 }

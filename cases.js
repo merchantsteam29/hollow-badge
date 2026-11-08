@@ -277,7 +277,7 @@ const CMARY = {
     api.anims.push((dt) => {
       lt += dt;
       if (off > 0) off -= dt; else if (lt > nextOff) { off = 1.5 + Math.random() * 2.5; nextOff = lt + off + 7 + Math.random() * 9; }
-      const k = off > 0 ? 0.02 : 0.75 + Math.sin(lt * 9) * 0.06 + (Math.random() < 0.05 ? -0.45 : 0);
+      const k = off > 0 ? 0.02 : api.calm ? 0.75 : 0.75 + Math.sin(lt * 9) * 0.06 + (Math.random() < 0.05 ? -0.45 : 0);
       shedLight.cur = 5 * k; leak.opacity = 0.4 * k; glowMat.color.setRGB(k, 0.69 * k, 0.38 * k);
     });
     // faint, broken trail: starts at the ribbon (not the road), patchy, with only a few boot prints
@@ -343,6 +343,11 @@ const CMARY = {
         });
       },
     });
+    if (!api.hasSecret('cmary')) {
+      const lily = B.lily(17.6, -29.4);
+      api.interact({ pos: [17.6, 0.3, -29.4], radius: 1.8, label: 'A white lily', cond: () => !api.hasSecret('cmary'),
+        use: () => { lily.visible = false; api.secret('cmary'); api.inspect({ title: 'A white lily', text: ["Behind the boarded-up house, where nobody would ever look, a single white lily lies in the wet grass. Fresh.","Tied to the stem, a small typed card: For the one who looks.","Every e sits a little high."] }); } });
+    }
     api.onRestore(() => {
       if (api.has('ribbon')) rib.visible = false;
       if (api.has('body')) door.rotation.y = -1.9;
@@ -740,7 +745,7 @@ const WING = {
     api.anims.push((dt) => {
       if (doorOpen > 0 && doorOpen < 1) { doorOpen = Math.min(1, doorOpen + dt * 0.6); mdoor.rotation.y = -1.65 * (1 - Math.pow(1 - doorOpen, 3)); }
       if (chew) { const t = performance.now() / 1000; sHead.rotation.x = -0.12 + Math.sin(t * 13) * 0.07; sSpine.rotation.x = 0.5 + Math.sin(t * 6.5) * 0.035; lump.rotation.y += dt * 0.6; }
-      if (tubeOn) { const k = Math.random() < 0.06 ? 0.1 : 0.85 + Math.random() * 0.15; tubeLight.cur = 7 * k; tubeMat.color.setRGB(0.85 * k, 0.92 * k, k); }
+      if (tubeOn) { const k = api.calm ? 0.92 : Math.random() < 0.06 ? 0.1 : 0.85 + Math.random() * 0.15; tubeLight.cur = 7 * k; tubeMat.color.setRGB(0.85 * k, 0.92 * k, k); }
       if (headTurn > 0 && headTurn < 1) {
         headTurn = Math.min(1, headTurn + dt * 0.55);
         const e = headTurn * headTurn * (3 - 2 * headTurn);
@@ -860,6 +865,11 @@ const WING = {
         placeStranger(6.2, 23.6, -Math.PI / 2);
         api.refresh();
       });
+    }
+    if (!api.hasSecret('wing')) {
+      const lily = B.lily(-10.6, -74);
+      api.interact({ pos: [-10.6, 0.3, -74], radius: 1.8, label: 'A white lily', cond: () => !api.hasSecret('wing'),
+        use: () => { lily.visible = false; api.secret('wing'); api.inspect({ title: 'A white lily', text: ["Behind the church, in the dark between the stone and the fence, a white lily lies on the cobbles.","Tied to the stem, a typed card: For the one who looks."] }); } });
     }
     api.onRestore(() => {
       if (api.has('log')) { doorOpen = 1; mdoor.rotation.y = -1.65; }

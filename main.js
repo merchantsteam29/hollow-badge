@@ -6,6 +6,8 @@ import { Sound } from './audio.js';
 import { openPrint } from './fingerprint.js';
 import { Voices } from './voice.js';
 import { VERSION, NOTES } from './changelog.js';
+import { Pad, BTN } from './pad.js';
+import { CREDITS } from './credits.js';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
@@ -18,7 +20,7 @@ const voices = new Voices();
 
 // ---------- settings ----------
 const settings = (() => {
-  const d = { bright: 1.3, sens: 1.0, vol: 0.8, quality: 'medium', qualityManual: false };
+  const d = { bright: 1.3, sens: 1.0, vol: 0.8, quality: 'medium', qualityManual: false, fov: 70, invert: false, calm: false, sub: 1, pads: true };
   try { return { ...d, ...JSON.parse(localStorage.getItem('hb_settings') || '{}') }; } catch { return d; }
 })();
 const saveSettings = () => { try { localStorage.setItem('hb_settings', JSON.stringify(settings)); } catch {} };
@@ -52,7 +54,8 @@ renderer.shadowMap.type = THREE.PCFShadowMap;
 $('game').appendChild(renderer.domElement);
 const canvas = renderer.domElement;
 
-const camera = new THREE.PerspectiveCamera(70, innerWidth / innerHeight, 0.05, 70);
+const camera = new THREE.PerspectiveCamera(settings.fov || 70, innerWidth / innerHeight, 0.05, 70);
+document.documentElement.style.setProperty('--sub', settings.sub || 1);
 camera.rotation.order = 'YXZ';
 addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); if (composer) composer.setSize(innerWidth, innerHeight); });
 
@@ -225,7 +228,7 @@ function makeRain(count) {
 }
 
 // ---------- case lifecycle ----------
-function startCase(def, load = false) {
+function startCase(def, load = false, opts = {}) {
   sound.stopLoops();
   $('whatsnew').classList.add('hidden');
   disposeScene(scene);
@@ -251,9 +254,9 @@ function startCase(def, load = false) {
   G = {
     def, clues: new Set(), asked: new Set(), flags: {}, colliders: [], lamps: [], lights: [], anims: [], interacts: [], pool: [], cull: [],
     pos: new THREE.Vector3(def.spawn.x, 0, def.spawn.z), yaw: def.spawn.yaw, pitch: 0, bob: 0, stepAcc: 0,
-    ui: null, cut: null, flashOn: true, flashFlicker: 0, t: 0, zone: null, ambience: null, nearest: null, perf: { t: 0, n: 0, checks: 0 },
+    ui: null, cut: null, flashOn: true, flashFlicker: 0, t: 0, zone: null, ambience: null, nearest: null, perf: { t: 0, n: 0, checks: 0 }, opts,
   };
-  B.init({ scene, colliders: G.colliders, lamps: G.lamps, lights: G.lights, anims: G.anims, cull: G.cull, camera, cheap: settings.quality === 'low' });
+  B.init({ scene, colliders: G.colliders, lamps: G.lamps, lights: G.lights, anims: G.anims, cull: G.cull, camera, cheap: settings.quality === 'low', calm: !!settings.calm });
   G.sky = skyDome; G.hemi = hemi; G.bolt = bolt; G.restores = [];
   if (renderPass) renderPass.scene = scene;
   G.rain = def.snow ? makeSnow(Math.round(Q().rain * 0.8)) : makeRain(Q().rain); scene.add(G.rain);
@@ -277,11 +280,23 @@ function startCase(def, load = false) {
   refresh();
   sound.ambience(def.rain, 0.05);
   if (def.isHome) { G.rain.visible = false; G.stalk = null; $('caseLabel').textContent = 'HOME · ASHGROVE'; }
+  if (opts.title) { // living title screen: the case builds, but nobody plays it
+    G.title = true; G.stalk = null; G.flashOn = false; flash.intensity = 0;
+    state = 'menu'; $('hud').classList.add('hidden'); $('intro').classList.add('hidden');
+    sound.ambience(def.rain, 0.04);
+    return;
+  }
+  if (opts.epilogue) {
+    G.stalk = null; state = 'play'; $('hud').classList.add('hidden'); $('intro').classList.add('hidden');
+    startCutscene(def.epilogue(opts.epilogue, secretCount() === 3 && opts.epilogue === 'good'), () => rollCredits());
+    return;
+  }
   if (save || def.isHome) { // continuing (or home): skip the intro card
     state = 'play'; $('hud').classList.remove('hidden'); $('intro').classList.add('hidden');
     if (!def.isHome) toast(`Continuing ${def.title}: ${G.clues.size} clues in your notebook`);
     lock();
   } else playIntro(def);
+  tutStart();
 }
 
 // ---------- saving ----------
@@ -357,8 +372,9 @@ function updateStalker(dt) {
       else if (ev.n <= 0) st.ev = null;
     } else if (ev.kind === 'lightning') {
       const on = (ev.t > 0 && ev.t < 0.13) || (ev.t > 0.24 && ev.t < 0.42);
-      G.hemi.intensity = on ? 4 : 1.1; G.bolt.intensity = on ? 7 : 0;
-      if (G.sky) G.sky.material.color.setScalar(on ? 3.5 : 1);
+      const calm = settings.calm;
+      G.hemi.intensity = on ? (calm ? 1.6 : 4) : 1.1; G.bolt.intensity = on ? (calm ? 1.2 : 7) : 0;
+      if (G.sky) G.sky.material.color.setScalar(on ? (calm ? 1.4 : 3.5) : 1);
       w.visible = !!ev.figure && on;
       if (ev.t > 0.6) { G.hemi.intensity = 1.1; G.bolt.intensity = 0; if (G.sky) G.sky.material.color.setScalar(1); w.visible = false; st.ev = null; }
     }
@@ -449,15 +465,19 @@ const api = {
   voice: (id, opts) => voices.play(id, opts),
   hasVoice: (id) => voices.has(id),
   stopVoice: () => voices.stop(),
-  shake: (v) => { G.shake = Math.max(G.shake || 0, v); },
+  shake: (v) => { if (settings.calm) return; G.shake = Math.max(G.shake || 0, v); },
+  get calm() { return !!settings.calm; },
+  get opts() { return G.opts || {}; },
+  secret: (id) => { if (secrets[id]) return false; secrets[id] = true; try { localStorage.setItem('hb_secrets', JSON.stringify(secrets)); } catch {} toast(`A white lily. (${secretCount()} / 3)`); return true; },
+  hasSecret: (id) => !!secrets[id],
   danger: (v) => { $('danger').style.opacity = Math.max(0, Math.min(1, v)); },
-  jolt: (kind) => { const el = $('jolt'); el.className = ''; void el.offsetWidth; if (kind) el.className = kind; },
+  jolt: (kind) => { if (settings.calm && (kind === 'white' || kind === 'red')) kind = ''; const el = $('jolt'); el.className = ''; void el.offsetWidth; if (kind) el.className = kind; },
   // hiding / scripted helpers
   get colliders() { return G.colliders; },
   freeze(on) { G.frozen = on; if (on) for (const k in keys) keys[k] = false; },
   setEye(h) { G.eyeH = h; },
   weather(on) { if (G.rain) G.rain.visible = on; },
-  holdingBreath: () => !!(keys.Space || TOUCH.breath),
+  holdingBreath: () => !!(keys.Space || TOUCH.breath || PADIN.breath),
   caption(text, vo, ms = 3000) {
     const cap = $('caption'); cap.textContent = text; cap.classList.add('on');
     clearTimeout(G.capT); G.capT = setTimeout(() => { if (!G.cut) cap.classList.remove('on'); }, ms);
@@ -512,14 +532,14 @@ function toast(text) {
 // ---------- pointer lock / UI ----------
 const locked = () => document.pointerLockElement === canvas;
 // 'active' = the player is in control: pointer-locked on desktop, or not paused in touch mode.
-const active = () => (TOUCH.on ? $('pause').classList.contains('hidden') : locked());
+const active = () => (TOUCH.on || PADIN.active ? $('pause').classList.contains('hidden') && (TOUCH.on || PADIN.active || locked()) : locked());
 function lock() {
-  if (TOUCH.on) { showPause(false); return; }
+  if (TOUCH.on || PADIN.active) { showPause(false); try { const p = canvas.requestPointerLock(); if (p && p.catch) p.catch(() => {}); } catch {} return; }
   try { const p = canvas.requestPointerLock(); if (p && p.catch) p.catch(() => {}); } catch {}
   setTimeout(() => { if (state === 'play' && !G.ui && !G.cut && !locked()) showPause(true); }, 400);
 }
 document.addEventListener('pointerlockchange', () => {
-  if (TOUCH.on) return;
+  if (TOUCH.on || PADIN.active) return;
   if (locked()) showPause(false);
   else if (state === 'play' && G && !G.ui && !G.cut) showPause(true);
 });
@@ -614,7 +634,7 @@ function finishInspect() {
 // ---------- fingerprint ----------
 function openPrintUI(o, done) {
   openUI('printer');
-  openPrint($('printHost'), o, () => { closeUI(); done && done(); });
+  printCtl = openPrint($('printHost'), o, () => { printCtl = null; closeUI(); done && done(); });
 }
 
 // ---------- interrogation: catch the lie ----------
@@ -850,7 +870,12 @@ function accuse(s, chosen = []) {
   end.text.forEach((t, i) => { const p = document.createElement('p'); p.textContent = t; p.style.animationDelay = `${0.8 + i * 1.8}s`; body.appendChild(p); });
   $('eActs').style.animationDelay = `${1 + end.text.length * 1.8}s`;
   voices.chain(end.text.map((_, i) => (good ? `${def.id}.good.${i}` : weak ? `${def.id}.weak.${i}` : `${def.id}.bad.${s.id}.${i}`)), 450);
+  G.endingKind = good ? 'good' : weak ? 'weak' : 'bad';
+  $('eEpilogue').classList.toggle('hidden', def.id !== 'ash');
 }
+$('eEpilogue').onclick = () => { voices.stop(); $('ending').classList.add('hidden'); startCase(HOME, false, { epilogue: G.endingKind }); };
+$('creditsSkip').onclick = endCredits;
+$('creditsBtn').onclick = () => { sound.init(); rollCredits(); };
 $('eHome').onclick = () => { voices.stop(); $('ending').classList.add('hidden'); startCase(HOME); };
 $('eMenu').onclick = () => { voices.stop(); $('ending').classList.add('hidden'); toMenu(); };
 $('eRetry').onclick = () => { voices.stop(); $('ending').classList.add('hidden'); clearSave(G.def.id); startCase(G.def); };
@@ -900,7 +925,10 @@ function updateCut(dt) {
 
 // ---------- menu / warning ----------
 function toMenu() {
+  if (!G || !G.title) { try { startCase(CASES.find((c) => c.id === 'ash') || CASES[0], false, { title: true }); } catch (e) { console.warn('title scene', e); } }
   state = 'menu';
+  $('tut').classList.add('hidden');
+  $('menu').classList.toggle('title', !!(G && G.title));
   $('hud').classList.add('hidden'); $('pause').classList.add('hidden');
   ['dialog', 'inspect', 'notebook', 'board', 'printer'].forEach((id) => $(id).classList.add('hidden'));
   if (G) G.ui = null;
@@ -919,8 +947,8 @@ function toMenu() {
     if (sv) card.querySelector('.over').onclick = (e) => { e.stopPropagation(); sound.init(); clearSave(def.id); $('menu').classList.add('hidden'); startCase(def); };
     list.appendChild(card);
   }
+  $('lilyCount').textContent = secretCount() ? `White lilies found: ${secretCount()} / 3` : '';
   $('menu').classList.remove('hidden');
-  sound.ambience(0.05, 0.035);
 }
 function openNews() {
   const body = $('newsBody'); body.innerHTML = '';
@@ -954,6 +982,13 @@ $('quit').onclick = () => toMenu();
 const bindSlider = (id, key, apply) => { const el = $(id); el.value = settings[key]; el.oninput = () => { settings[key] = +el.value; apply(+el.value); saveSettings(); }; };
 bindSlider('sBright', 'bright', (v) => { renderer.toneMappingExposure = v; });
 bindSlider('sSens', 'sens', () => {});
+bindSlider('sFov', 'fov', (v) => { camera.fov = v; camera.updateProjectionMatrix(); });
+$('sSub').value = String(settings.sub || 1);
+$('sSub').onchange = () => { settings.sub = +$('sSub').value; document.documentElement.style.setProperty('--sub', settings.sub); saveSettings(); };
+for (const [id, key, after] of [['sInvert', 'invert'], ['sCalm', 'calm'], ['wCalm', 'calm'], ['sPads', 'pads', (v) => { pad.enabled = v; }]]) {
+  $(id).checked = key === 'pads' ? settings.pads !== false : !!settings[key];
+  $(id).onchange = () => { settings[key] = $(id).checked; saveSettings(); if (key === 'calm') { $('sCalm').checked = $('wCalm').checked = settings.calm; if (G) toast('Reduce flashing applies fully from the next case or scene.'); } if (after) after(settings[key]); };
+}
 bindSlider('sVol', 'vol', (v) => { sound.setVolume(v); voices.setVolume(v); });
 voices.setVolume(settings.vol);
 voices.on = settings.voices !== false;
@@ -996,20 +1031,21 @@ addEventListener('keydown', (e) => {
   if (G.ui) { if (e.code === 'Escape') closeUI(); return; }
   keys[e.code] = true;
   if (e.code === 'KeyE' && G.nearest) useNearest();
-  if (e.code === 'KeyF') api.flash(!G.flashOn);
-  if (e.code === 'Tab' || e.code === 'KeyN') openNotebook();
+  if (e.code === 'KeyF') { tutMark('flash'); api.flash(!G.flashOn); }
+  if (e.code === 'Tab' || e.code === 'KeyN') { tutMark('notebook'); openNotebook(); }
 });
 addEventListener('keyup', (e) => { keys[e.code] = false; });
 addEventListener('mousemove', (e) => {
   if (!locked() || !G || G.ui || G.cut) return;
   const s = 0.0022 * settings.sens;
-  G.yaw -= e.movementX * s; G.pitch -= e.movementY * s;
+  G.yaw -= e.movementX * s; G.pitch -= e.movementY * s * (settings.invert ? -1 : 1);
   G.pitch = Math.max(-1.45, Math.min(1.45, G.pitch));
 });
 canvas.addEventListener('mousedown', (e) => { if (e.button === 0 && locked() && G && !G.ui && !G.cut && G.nearest) useNearest(); });
 function useNearest() {
   const it = G.nearest; if (!it) return;
   it.use();
+  tutMark('examine');
   if (it.once) { it.alive = false; if (it.sprite) it.sprite.visible = false; }
 }
 
@@ -1075,7 +1111,7 @@ function updateTouchAct(best) {
     if (e.pointerId !== lId) return;
     if (G && !G.ui && !G.cut && active()) {
       const s = 0.0058 * settings.sens;
-      G.yaw -= (e.clientX - lx) * s; G.pitch -= (e.clientY - ly) * s;
+      G.yaw -= (e.clientX - lx) * s; G.pitch -= (e.clientY - ly) * s * (settings.invert ? -1 : 1);
       G.pitch = Math.max(-1.45, Math.min(1.45, G.pitch));
     }
     lx = e.clientX; ly = e.clientY;
@@ -1099,6 +1135,120 @@ function updateTouchAct(best) {
   document.addEventListener('touchmove', (e) => { if (state === 'play' && e.target.closest && e.target.closest('#touch')) e.preventDefault(); }, { passive: false });
 })();
 
+
+// ---------- v4: gamepad ----------
+const pad = new Pad(); pad.enabled = settings.pads !== false;
+const PADIN = { mx: 0, mz: 0, run: false, breath: false, active: false };
+let padFocus = 0, padStick = 0;
+const UI_ORDER = ['credits', 'confirm', 'whatsnew', 'interro', 'board', 'inspect', 'printer', 'notebook', 'dialog', 'pause', 'ending', 'intro', 'menu', 'warning'];
+function shown(el) { return el && !el.classList.contains('hidden') && el.offsetParent !== null; }
+function padItems() {
+  for (const id of UI_ORDER) {
+    const el = $(id);
+    if (!el || el.classList.contains('hidden') || getComputedStyle(el).display === 'none') continue;
+    const items = [...el.querySelectorAll('button:not([disabled]), .casecard, .suspect, input, select')].filter((x) => shown(x) && !x.closest('.hidden'));
+    if (items.length) return items;
+  }
+  return [];
+}
+function padBack() {
+  if (!$('whatsnew').classList.contains('hidden')) { $('whatsnew').classList.add('hidden'); return; }
+  if (!$('credits').classList.contains('hidden')) { endCredits(); return; }
+  if (!G) return;
+  if (G.ui === 'dialog') { if (dlg && !dlg.lines) { dlg = null; voices.stop(); closeUI(); } return; }
+  if (G.ui === 'inspect') { finishInspect(); return; }
+  if (G.ui === 'interro') { closeInterrogation(); return; }
+  if (G.ui) { closeUI(); return; }
+  if (!$('pause').classList.contains('hidden')) lock();
+}
+function padUI(p) {
+  if (p.pressed(BTN.B)) { padBack(); return; }
+  if (G && G.ui === 'printer' && printCtl) { printCtl.pad(p.lx, p.ly, p.down(BTN.A)); if (!p.pressed(BTN.START)) return; }
+  const items = padItems();
+  document.querySelectorAll('.padfocus').forEach((e) => e.classList.remove('padfocus'));
+  if (!items.length) return;
+  const sy = p.ly, sx = p.lx, dirNow = Math.abs(sy) > 0.6 ? Math.sign(sy) : Math.abs(sx) > 0.6 ? Math.sign(sx) : 0;
+  let step = 0;
+  if (p.pressed(BTN.DOWN) || p.pressed(BTN.RIGHT)) step = 1;
+  if (p.pressed(BTN.UP) || p.pressed(BTN.LEFT)) step = -1;
+  if (dirNow && dirNow !== padStick) step = dirNow;
+  padStick = dirNow;
+  padFocus = ((padFocus + step) % items.length + items.length) % items.length;
+  const el = items[padFocus];
+  el.classList.add('padfocus'); if (step) el.scrollIntoView({ block: 'nearest' });
+  if (el.type === 'range' && (p.pressed(BTN.LEFT) || p.pressed(BTN.RIGHT))) return;
+  if (p.pressed(BTN.A)) { el.click(); padFocus = 0; }
+  if (p.pressed(BTN.START) && G && state === 'play' && !$('pause').classList.contains('hidden')) lock();
+}
+function updatePad(dt) {
+  const p = pad.poll();
+  PADIN.active = !!p;
+  if (!p) { PADIN.mx = PADIN.mz = 0; PADIN.run = PADIN.breath = false; document.querySelectorAll('.padfocus').forEach((e) => e.classList.remove('padfocus')); return; }
+  const inUI = state !== 'play' || !G || G.ui || G.cut || !$('pause').classList.contains('hidden') || !$('whatsnew').classList.contains('hidden');
+  PADIN.breath = p.down(BTN.LT) || p.down(BTN.RB);
+  if (inUI) { PADIN.mx = PADIN.mz = 0; if (!(G && G.cut)) padUI(p); return; }
+  document.querySelectorAll('.padfocus').forEach((e) => e.classList.remove('padfocus'));
+  PADIN.mx = p.lx; PADIN.mz = -p.ly; PADIN.run = p.down(BTN.LB) || p.down(BTN.L3) || Math.hypot(p.lx, p.ly) > 0.97;
+  if (!G.frozen || G.flags.hidePhase) {
+    const s = 2.6 * settings.sens * dt;
+    G.yaw -= p.rx * s; G.pitch -= p.ry * s * (settings.invert ? -1 : 1);
+    G.pitch = Math.max(-1.45, Math.min(1.45, G.pitch));
+  }
+  if (p.pressed(BTN.A) && G.nearest) { tutMark('examine'); useNearest(); }
+  if (p.pressed(BTN.X)) { tutMark('flash'); api.flash(!G.flashOn); }
+  if (p.pressed(BTN.Y)) { tutMark('notebook'); openNotebook(); }
+  if (p.pressed(BTN.START)) showPause(true);
+}
+
+// ---------- v4: first-time tutorial ----------
+const TUT = ['move', 'look', 'examine', 'flash', 'notebook'];
+let tut = null;
+function tutStart() {
+  let done = false; try { done = localStorage.getItem('hb_tut') === '1'; } catch {}
+  if (done || !G || G.def.isHome || G.opts.title || G.opts.epilogue) { $('tut').classList.add('hidden'); tut = null; return; }
+  tut = { left: new Set(TUT), p0: G.pos.clone(), y0: G.yaw, t: 0 };
+  const L = TOUCH.on
+    ? { move: 'Left thumb: move', look: 'Right thumb: look around', examine: 'Tap the button that appears to examine', flash: 'LIGHT: flashlight on/off', notebook: 'NOTES: your notebook' }
+    : PADIN.active
+      ? { move: 'Left stick: move (LB to run)', look: 'Right stick: look', examine: 'A: examine / talk', flash: 'X: flashlight', notebook: 'Y: notebook' }
+      : { move: 'WASD: move (Shift to run)', look: 'Mouse: look', examine: 'E or click: examine / talk', flash: 'F: flashlight', notebook: 'Tab: notebook' };
+  $('tut').innerHTML = '<b>HOW TO PLAY</b>' + TUT.map((k) => `<div data-k="${k}">☐ ${L[k]}</div>`).join('');
+  $('tut').classList.remove('hidden');
+}
+function tutMark(k) {
+  if (!tut || !tut.left.has(k)) return;
+  tut.left.delete(k);
+  const row = $('tut').querySelector(`[data-k="${k}"]`); if (row) { row.classList.add('done'); row.textContent = '☑' + row.textContent.slice(1); }
+  if (!tut.left.size) { tut = null; try { localStorage.setItem('hb_tut', '1'); } catch {} setTimeout(() => $('tut').classList.add('hidden'), 1500); }
+}
+function tutUpdate(dt) {
+  if (!tut || state !== 'play') return;
+  tut.t += dt;
+  if (G.pos.distanceTo(tut.p0) > 2.5) tutMark('move');
+  if (Math.abs(G.yaw - tut.y0) > 0.9) tutMark('look');
+  if (tut && tut.t > 120) { $('tut').classList.add('hidden'); tut = null; }
+}
+
+// ---------- v4: secret lilies (one hidden in each of Cases 01-03) ----------
+const secrets = (() => { try { return JSON.parse(localStorage.getItem('hb_secrets') || '{}'); } catch { return {}; } })();
+const secretCount = () => ['cmary', 'wing', 'harrow'].filter((k) => secrets[k]).length;
+
+// ---------- v4: credits + epilogue ----------
+function rollCredits() {
+  const c = CREDITS, el = $('creditsRoll');
+  const sec = (h, items) => (items && items.length ? `<h4>${h}</h4>` + items.map((x) => `<p>${typeof x === 'string' ? x : `${x.role} <span>${x.name}</span>`}</p>`).join('') : '');
+  el.innerHTML = `<h2>${c.title}</h2><p class="by">A game by</p><h3>${c.creator}</h3>`
+    + sec('Voice cast', c.cast) + sec('Playtesters', c.playtesters) + sec('Thanks', c.thanks) + sec('', c.tech)
+    + `<p class="last">Every case closes.<br>None of them end.</p>`;
+  el.style.animation = 'none'; void el.offsetWidth; el.style.animation = '';
+  $('credits').classList.remove('hidden');
+  state = 'credits'; $('hud').classList.add('hidden');
+  clearTimeout(rollCredits.t); rollCredits.t = setTimeout(endCredits, 52000);
+}
+function endCredits() { clearTimeout(rollCredits.t); $('credits').classList.add('hidden'); toMenu(); }
+
+let printCtl = null;
+
 // ---------- per-frame ----------
 const R = 0.38;
 function collide(p, R = 0.38) {
@@ -1121,9 +1271,9 @@ function updatePlayer(dt) {
   if (canMove) {
     if (keys.KeyW || keys.ArrowUp) mz += 1; if (keys.KeyS || keys.ArrowDown) mz -= 1;
     if (keys.KeyD || keys.ArrowRight) mx += 1; if (keys.KeyA || keys.ArrowLeft) mx -= 1;
-    mx += TOUCH.mx; mz += TOUCH.mz;
+    mx += TOUCH.mx + PADIN.mx; mz += TOUCH.mz + PADIN.mz;
   }
-  const run = keys.ShiftLeft || keys.ShiftRight || (canMove && TOUCH.run);
+  const run = keys.ShiftLeft || keys.ShiftRight || (canMove && (TOUCH.run || PADIN.run));
   const sp = run ? 5.2 : 2.9;
   const moving = mx || mz;
   if (moving) {
@@ -1221,7 +1371,7 @@ function updateFlash(dt) {
   G.flashBase = G.flashBase === undefined ? target : G.flashBase + (target - G.flashBase) * Math.min(1, dt * 5);
   G.flashFlicker -= dt;
   let k = 1;
-  if (G.flashFlicker < 0) { if (Math.random() < 0.004) G.flashFlicker = 0.6 + Math.random() * 0.6; } // brief failing battery moment
+  if (G.flashFlicker < 0) { if (!settings.calm && Math.random() < 0.004) G.flashFlicker = 0.6 + Math.random() * 0.6; } // brief failing battery moment
   else k = Math.random() < 0.4 ? 0.05 : 0.7;
   flash.intensity = G.flashBase * k;
 }
@@ -1255,9 +1405,15 @@ function frame(now) {
   const dt = Math.min(0.05, (now - last) / 1000); last = now;
   if (!scene || !G) { renderer.clear(); return; }
   G.t += dt;
+  updatePad(dt); tutUpdate(dt);
   if (state === 'play') {
     if (G.cut) { updateCut(dt); updateFlash(dt); }
     else { updatePlayer(dt); updateInteract(); updateFlash(dt); updateAmbience(); }
+  } else if (state === 'menu' && G.title) {
+    // slow drift down the rainy street behind the menu
+    const k = (G.t * 0.55) % 70;
+    camera.position.set(0.6 + Math.sin(G.t * 0.07) * 1.2, 2.3 + Math.sin(G.t * 0.11) * 0.15, 28 - k);
+    camera.lookAt(-0.5 + Math.sin(G.t * 0.05) * 2, 1.7, 18 - k);
   } else if (state === 'intro' || state === 'ending') {
     camera.position.set(G.pos.x, 1.65, G.pos.z); camera.rotation.set(G.pitch, G.yaw + Math.sin(G.t * 0.1) * 0.05, 0);
   }

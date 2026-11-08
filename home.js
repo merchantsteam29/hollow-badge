@@ -20,6 +20,30 @@ export const HOME = {
   id: 'home', num: 'HOME', title: 'Your Apartment', place: 'Ashgrove', date: 'Between cases',
   blurb: 'A two-room apartment over a laundromat. Nobody calls. Lately, someone does.',
   isHome: true,
+  // New Year's Day, after the finale. kind = good | weak | bad; trueEnd = found all three lilies
+  epilogue(kind, trueEnd) {
+    const shots = [
+      { pos: [2.2, 1.7, 2.2], look: [0.8, 1.5, -3], dur: 5, text: "New Year's Day.", vo: 'home.epi.0' },
+      { pos: [1.2, 1.6, -1.2], look: [0.8, 1.6, -3], dur: 4.5, text: 'The rain has stopped. Downstairs, the laundromat sign is off.', vo: 'home.epi.1' },
+    ];
+    if (kind === 'good') shots.push(
+      { pos: [-0.8, 1.4, -0.6], look: [-2.2, 0.85, -2.25], dur: 4.5, text: 'No messages. No letters under the door.', vo: 'home.epi.2' },
+      { pos: [0.6, 1.6, 0.4], look: [3.47, 1.4, 0.4], dur: 5, text: 'You take the cards down from the wall, one by one. You leave the red string where it is.', vo: 'home.epi.3' },
+    );
+    else shots.push(
+      { pos: [-1.4, 1.3, 1.2], look: [-2.2, 0.05, 2.6], dur: 4.5, text: 'There is a letter under your door.', vo: 'home.epi.4' },
+      { pos: [0.6, 1.6, 0.4], look: [3.47, 1.4, 0.4], dur: 5, text: 'You do not open it. You do not need to. The red string waits on the wall.', vo: 'home.epi.5' },
+    );
+    if (trueEnd) shots.push(
+      { pos: [-1.6, 1.3, -1.0], look: [-2.6, 0.95, -2.3], dur: 5, text: 'Three white lilies in a glass on your desk. One from each town.', vo: 'home.epi.6' },
+      { hold: 5, text: 'In her cell, Lund asked for only one thing. You brought them to her.', vo: 'home.epi.7' },
+      { hold: 5.5, text: "And she told you the name that was erased under yours on Crane's list.", vo: 'home.epi.8' },
+      { pos: [1.0, 1.6, 0.4], look: [3.47, 1.05, 0.4], dur: 5, text: 'You have never heard it before. You write it on a new card, and pin it to the wall.', vo: 'home.epi.9' },
+      { hold: 4, text: 'Then you go back to work.', vo: 'home.epi.10' },
+    );
+    else shots.push({ hold: 4, text: 'Every case closes. None of them end.', vo: 'home.epi.11' });
+    return shots;
+  },
   intro: [], fog: 0.03, rain: 0.08, spawn: { x: 1.2, z: 1.6, yaw: Math.PI * 0.85 },
   sky: { top: '#04050a', mid: '#0c1018', horizon: '#1c1e28', glow: 'rgba(90,70,60,0.5)', clouds: 'rgba(60,60,70,0.4)' },
   required: [], culprit: null, suspects: [], clues: {},
@@ -57,6 +81,7 @@ export const HOME = {
       for (let i = 0; i < 90; i++) { g.strokeStyle = 'rgba(200,210,230,0.18)'; g.beginPath(); const x = Math.random() * w, y = Math.random() * h; g.moveTo(x, y); g.lineTo(x + 2, y + 18 + Math.random() * 20); g.stroke(); }
     }, 1.8, 1.4, 0.8, 1.6, -2.98, { ry: 0, glow: true, res: 512 });
     B.light(0.8, 1.6, -2.4, 0x8aa0c8, 2.5, 5);
+    if (api.opts.epilogue) { B.light(0.8, 2.0, -2.2, 0xffe6c8, 14, 9); if (api.opts.epilogue === 'good' && api.hasSecret('cmary') && api.hasSecret('wing') && api.hasSecret('harrow')) for (let i = 0; i < 3; i++) B.lily(-2.75 + i * 0.07, -2.2); }
     // desk + lamp + answering machine
     B.box(1.6, 0.06, 0.7, 0x3a2416, -2.5, 0.74, -2.3, { collide: true });
     for (const [lx, lz] of [[-3.2, -2.6], [-1.8, -2.6], [-3.2, -2.0], [-1.8, -2.0]]) B.box(0.05, 0.74, 0.05, 0x2a1a10, lx, 0, lz);

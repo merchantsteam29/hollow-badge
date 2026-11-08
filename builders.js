@@ -274,7 +274,7 @@ export function lamp(x, z, o = {}) {
       if (!rec.on) return;
       t += dt;
       if (t > next) { t = 0; next = 0.05 + Math.random() * (Math.random() < 0.15 ? 2.5 : 0.25); }
-      const k = Math.random() < 0.12 ? 0.08 : 0.85 + Math.random() * 0.15;
+      const k = C.calm ? 0.95 : Math.random() < 0.12 ? 0.08 : 0.85 + Math.random() * 0.15;
       rec.cur = rec.base * k; bulbMat.emissiveIntensity = 2.2 * k; coneMat.uniforms.opacity.value = 0.24 * k;
     });
   }
@@ -646,7 +646,7 @@ export function car(x, z, o = {}) {
     let t = 0;
     C.anims.push((dt) => {
       t += dt;
-      const ph = Math.floor(t * 3) % 2, strobe = (t * 12) % 1 < 0.6 ? 1 : 0.3;
+      const ph = Math.floor(t * (C.calm ? 0.7 : 3)) % 2, strobe = C.calm ? 0.6 : (t * 12) % 1 < 0.6 ? 1 : 0.3;
       red.emissiveIntensity = ph === 0 ? 3 * strobe : 0.1;
       blue.emissiveIntensity = ph === 1 ? 3 * strobe : 0.1;
       pl.color.setHex(ph === 0 ? 0xff1020 : 0x2050ff); pl.cur = 9 * strobe;
@@ -757,4 +757,15 @@ export function skyTexture(o = {}) {
   }
   const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; t.mapping = THREE.EquirectangularReflectionMapping;
   return t;
+}
+
+// A single white lily lying on the ground (the secret collectible).
+export function lily(x, z) {
+  const g = new THREE.Group(); g.position.set(x, 0.03, z); g.rotation.y = Math.random() * 6;
+  const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.45, 5), mat(0x2a4a2a)); stem.rotation.z = Math.PI / 2; stem.position.set(0, 0.01, 0); g.add(stem);
+  const petal = new THREE.MeshStandardMaterial({ color: 0xf2f0ea, emissive: 0x2a2a28, roughness: 0.6 });
+  for (let i = 0; i < 6; i++) { const p = new THREE.Mesh(new THREE.ConeGeometry(0.025, 0.12, 5), petal); p.position.set(0.24, 0.03, 0); p.rotation.set(i, 0, -Math.PI / 2 + Math.cos(i) * 0.4); g.add(p); }
+  const card = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.004, 0.04), mat(0xe8e2d4)); card.position.set(0.06, 0.02, 0.03); g.add(card);
+  g.userData.dynamic = true; C.scene.add(g);
+  return g;
 }

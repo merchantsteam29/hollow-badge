@@ -78,6 +78,8 @@ export function buildScript(CASES) {
     const sp = speakerOf(t);
     out.push({ id: `home.msg.${mi}.${i}`, role: sp === 'narrator' ? m.who : sp === 'margaret' ? 'mom' : sp, text: stripSpeaker(t), where: 'Your apartment: answering machine message' });
   }));
+  ['New Year\'s Day.', 'The rain has stopped. Downstairs, the laundromat sign is off.', 'No messages. No letters under the door.', 'You take the cards down from the wall, one by one. You leave the red string where it is.', 'There is a letter under your door.', 'You do not open it. You do not need to. The red string waits on the wall.', 'Three white lilies in a glass on your desk. One from each town.', 'In her cell, Lund asked for only one thing. You brought them to her.', "And she told you the name that was erased under yours on Crane's list.", 'You have never heard it before. You write it on a new card, and pin it to the wall.', 'Then you go back to work.', 'Every case closes. None of them end.']
+    .forEach((t, i) => out.push({ id: `home.epi.${i}`, role: 'narrator', text: t, where: 'Epilogue (after Case 04)' }));
   HOME_CAPTIONS.letters.forEach((l, k) => out.push({ id: `home.letter.${k}.0`, role: 'collector', text: l.lines.join(' '), where: 'Your apartment: letter under the door (read the whole letter)' }));
   for (const m of MAN) out.push({ ...m, role: 'man' });
   return out;
