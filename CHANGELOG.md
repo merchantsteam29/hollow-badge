@@ -2,6 +2,26 @@
 
 Play: https://merchantsteam29.github.io/hollow-badge/
 
+## v2.3: Home (2026-11-07)
+
+- Your apartment in Ashgrove: go home from the menu or after any case.
+- An answering machine that fills up as you close cases. Some messages are not from anyone you know.
+- Letters slipped under your door. Your case wall, and the red string that keeps leading to the same empty space.
+
+## v2.2: The interview room (2026-11-07)
+
+- Interrogations in every case: Gary Voss, the man Holt arrested, and Walt at his counter.
+- They tell their story line by line. Press for detail, or present the clue that proves a line is a LIE.
+- Three wrong presentations and they ask for a lawyer, for good. Breaking them gives you new proof for the charge.
+
+## v2.1: Someone is watching (2026-11-07)
+
+- Your progress saves automatically. Case cards show Continue or Start over.
+- Detective mode (menu or pause): no objectives and no glinting clues. Solving a case this way earns a ★.
+- 3D sound: footsteps, doors and whoever is chasing you come from where they really are; lamps buzz, fires crackle, neon hums.
+- Something is following you. Keep your eyes open in the dark, and listen behind you.
+- Lightning over the rainy towns. Look down the street when it strikes.
+
 ## v2.0: The Graphics Update (2026-11-07)
 
 - Glow (bloom): neon signs, street lamps, windows and police lights now glow and bleed into the fog.

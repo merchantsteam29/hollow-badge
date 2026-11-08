@@ -38,7 +38,29 @@ const CMARY = {
   sky: { top: '#02040a', mid: '#08101c', horizon: '#121a26', stars: true, moon: true, clouds: 'rgba(55,65,85,0.35)' },
   required: ['print', 'van', 'jacket', 'body'],
   // clues that point at the killer himself (the backpack or the body prove a crime, not who)
-  proof: ['print', 'van', 'jacket', 'knife', 'gary', 'mom_van', 'tracks'],
+  proof: ['print', 'van', 'jacket', 'knife', 'gary', 'mom_van', 'tracks', 'voss_lied'],
+  interrogation: {
+    id: 'voss', who: 'Gary Voss', role: 'voss',
+    model: { build: 'heavy', coat: 0x34452a, coatLen: 'short', shirt: 0x2a2a2a, pants: 0x2a2620, hair: 0x3a2a1a, beard: 'stubble', skin: 0x9a7a66, arms: 'hug' },
+    room: { wall: 0x4a4a42, lamp: 0xfff0d0, mirror: true },
+    spots: [{ pos: [0.6, 1.2, 25.2], label: 'Interview room: question Gary Voss' }],
+    unlock: (api) => api.has('gary') && api.has('van'),
+    intro: ['VOSS: Am I under arrest?', "VOSS: Then make it quick. I've got work in the morning."],
+    statements: [
+      { t: "I don't know any Lily Rowe. I've seen the posters. That's it.", press: ['VOSS: Kids come in the store with their mothers. I stock shelves. I don\'t look at kids.'] },
+      { t: "My van's been dead all week. Alternator. It hasn't moved from my trailer since Monday.", press: ['VOSS: Ask anyone. I walked to work all week.'], lie: 'van',
+        crack: ['He stares at the statement from the bus stop for a long time.', 'VOSS: Fine. It runs. I drove it into town. Driving isn\'t a crime.'], after: 'A witness saw his van at the playground at 3:45.' },
+      { t: "I don't go near that playground. Never. I take the logging road home.", press: ["VOSS: Why would a grown man go to a playground?"], lie: 'print',
+        crack: ['You slide the print across the table. AFIS: G. VOSS.', 'VOSS: I push gates. Lots of gates. You can\'t put a man away for a gate.'], after: 'His print is on the playground gate latch.' },
+      { t: "And the store hasn't lost a thing this year. I do the stocktake. I'd know.", press: ['VOSS: Every screw. Every blade. I count it all.'], lie: 'knife',
+        crack: ['The knife. INV 0412. His jaw works.', 'VOSS: Anybody could walk out with a knife.'], after: 'A knife from his own stocktake was in the shed with Lily.' },
+    ],
+    wrong: ["VOSS: What's that supposed to prove?", "VOSS: You're reaching, Detective.", "VOSS: That's got nothing to do with me."],
+    fail: ["VOSS: We're done. I want a lawyer.", 'He folds his arms and will not say another word tonight.'],
+    done: ['He stops talking. He looks at the table and does not look up again.', 'VOSS: I want a lawyer.'],
+    gives: 'voss_lied',
+  },
+
   culprit: 'voss',
   clues: {
     mom_time: { type: 'statement', title: 'Margaret Rowe — timeline', text: 'Last saw Lily at 7:50 AM. Lily should have been home by 3:50 PM. Margaret got home at 5:00 to an empty house.' },
@@ -55,6 +77,7 @@ const CMARY = {
     tracks: { type: 'evidence', title: 'Tire tracks — logging road', text: 'Wide wheelbase, worn tread. A van. Fresh: the rain has not softened the edges yet.' },
     ribbon: { type: 'evidence', title: 'Red ribbon', text: 'Snagged on a branch a meter off the ground, tied crooked. It points away from the road, toward a shed in the trees.' },
     body: { type: 'evidence', title: 'Lily Rowe', text: 'Found in the old woodcutter\'s shed off the logging road. Face down. She had been dead for hours.' },
+    voss_lied: { type: 'statement', title: 'Voss: caught lying', text: 'In the interview room Voss swore his van was dead, that he never goes near the playground, and that no stock went missing. The witness, the print and the knife all say he lied.' },
     knife: { type: 'evidence', title: 'The knife', text: 'Hunting knife, black handle. Stamped near the guard: PRUETT HARDWARE — INV 0412. Store stock, never sold.' },
   },
   suspects: [
@@ -319,6 +342,10 @@ const CMARY = {
         });
       },
     });
+    api.onRestore(() => {
+      if (api.has('ribbon')) rib.visible = false;
+      if (api.has('body')) door.rotation.y = -1.9;
+    });
     api.ambience({ zone: (p) => (p.z < -36 ? 'woods' : 'town') });
   },
 };
@@ -384,7 +411,29 @@ const WING = {
   fog: 0.058, rain: 0.1, spawn: { x: 0, z: 20, yaw: 0 },
   sky: { top: '#050508', mid: '#100c0e', horizon: '#26170f', glow: 'rgba(120,58,26,0.6)', clouds: 'rgba(80,52,44,0.45)' },
   required: ['print2', 'scar', 'log'],
-  proof: ['print2', 'scar', 'log', 'limp', 'watch_buyer', 'chemical', 'daughter', 'watches'],
+  proof: ['print2', 'scar', 'log', 'limp', 'watch_buyer', 'chemical', 'daughter', 'watches', 'crane_lied'],
+  interrogation: {
+    id: 'crane', who: 'The man in the morgue', role: 'crane',
+    model: { coat: 0x22222a, coatLen: 'long', shirt: 0x5a5a60, tie: 0x0a0a0a, pants: 0x16161a, glasses: true, blackLenses: true, hair: 0x3a3a3a, skin: 0xb4b0a8, arms: 'clasp' },
+    room: { wall: 0x34383c, lamp: 0xd8e6ff, mirror: true },
+    spots: [{ pos: [3.8, 1.2, 24.6], label: 'Interview room: question the man Holt arrested' }],
+    unlock: (api) => !!api.flags.arrested,
+    intro: ['CRANE: Detective. You ran very fast.', 'CRANE: Ask your questions. I have all night. So, it seems, do you.'],
+    statements: [
+      { t: 'I was in the morgue because I work there. A coroner works late.', press: ['CRANE: The dead do not keep office hours.'] },
+      { t: 'And I walk perfectly well. I have never needed a cane.', press: ['CRANE: Look at me. Do I look like an invalid?'], lie: 'limp',
+        crack: ['CRANE: ...A sprain. Years ago. It comes and goes.', 'He sets his hands on the table, very carefully.'], after: 'A witness saw a tall man with a cane and a bad left leg.' },
+      { t: 'Those cheap watches? I have never bought a watch in my life.', press: ['CRANE: Time is the one thing I have never needed to keep.'], lie: 'watch_buyer',
+        crack: ['CRANE: Finch is a frightened little man. He would say anything.'], after: 'Finch sold a dozen watches to a gloved man with a cane.' },
+      { t: 'You will not find my fingerprints on anything that matters.', press: ['CRANE: I wear gloves. Every day. It is my profession.'], lie: ['scar', 'print2'],
+        crack: ['He looks at his right hand. At the old white scar across the fingertip.', 'CRANE: Annie used to trace it. Did you know that?'], after: 'The scar on his finger runs through the print from the lane.' },
+    ],
+    wrong: ['CRANE: Is that the best you have?', 'CRANE: You are guessing, Detective. Annie\'s surgeon guessed too.', 'CRANE: How disappointing.'],
+    fail: ['CRANE: I think I would like my lawyer now.', 'He smiles, and says nothing else.'],
+    done: ['CRANE: Two-thirteen, Detective. Every night, at two-thirteen, I am back in that hallway.', 'CRANE: Everyone stops looking eventually. You will too.'],
+    gives: 'crane_lied',
+  },
+
   culprit: 'crane',
   clues: {
     victims: { type: 'statement', title: 'Sgt. Holt — the victims', text: 'Carol Dunn, 71 (the lane off Main). Henry Oakes, 68 (riverbank by the bridge). Ruth Abara, 66 (church steps). All retired, all lived alone. Nothing stolen.' },
@@ -402,6 +451,7 @@ const WING = {
     vial: { type: 'evidence', title: 'Vial cap — riverbank', text: 'A glass vial cap in the reeds. CHLORAL HYDRATE — FOR INSTITUTIONAL USE ONLY. An old sedative. Hospitals and morgues still keep it.' },
     tally3: { type: 'evidence', title: 'Tally mark III', text: 'III carved into the bottom church step. Under it, smaller: 2:13.' },
     log: { type: 'evidence', title: 'Morgue drug log', text: 'Chloral hydrate signed out three times this month, on the day of each killing. Initialled E.C.' },
+    crane_lied: { type: 'statement', title: 'Crane: caught lying', text: 'He claimed he never needed a cane, never bought a watch, and that his prints were on nothing. The witness, the watchmaker and the scarred print say otherwise.' },
     watches: { type: 'evidence', title: 'Box of watches', text: 'A box of nine cheap pocket watches in the coroner\'s office, all stopped at 2:13. One has a paper tag: IV.' },
   },
   suspects: [
@@ -577,6 +627,7 @@ const WING = {
     const flame = new THREE.Mesh(new THREE.ConeGeometry(0.25, 0.6, 6), new THREE.MeshBasicMaterial({ color: 0xff8a3a }));
     flame.position.set(35.4, 1.2, -24.5); api.scene.add(flame);
     api.anims.push(() => { const k = 0.75 + Math.random() * 0.35; fire.cur = 10 * k; flame.scale.set(1, k * 1.2, 1); });
+    api.sound.loopAt([35.4, 1, -24.5], 'fire');
     B.collider(34.9, -25, 35.9, -24);
 
     // signs
@@ -779,7 +830,7 @@ const WING = {
       sSpine.rotation.z = Math.sin(runPhase * 0.5) * 0.12;
       sSpine.rotation.y = Math.sin(runPhase) * 0.12;
       sHead.rotation.z = 0.3 + Math.sin(chase.t * 13) * 0.08;
-      chase.step -= dt; if (chase.step <= 0) { chase.step = 0.24; api.sound.tap(); if (Math.random() < 0.15) api.sound.growl(); }
+      chase.step -= dt; if (chase.step <= 0) { chase.step = 0.24; api.sound.at(stranger.position, () => { api.sound.tap(); if (Math.random() < 0.15) api.sound.growl(); }); }
     });
     function caught() {
       chase.on = false;
@@ -809,6 +860,13 @@ const WING = {
         api.refresh();
       });
     }
+    api.onRestore(() => {
+      if (api.has('log')) { doorOpen = 1; mdoor.rotation.y = -1.65; }
+      if (api.flags.arrested) {
+        lump.visible = false; placeStranger(6.2, 23.6, -Math.PI / 2);
+        poseKneel(); sInner.position.y = -0.47; sSpine.rotation.set(0.08, 0, 0); sHead.rotation.set(0.15, 0, 0.35);
+      }
+    });
     api.ambience({ zone: () => 'town' });
   },
 };

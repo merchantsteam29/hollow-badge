@@ -48,9 +48,10 @@
 <div id="menu" class="screen hidden">
   <div class="logo">HOLLOW<span>BADGE</span></div>
   <div class="tag">Every case closes. None of them end.</div>
-  <button id="newsBtn" class="btn ghost news">What's new · <span id="verLabel"></span></button>
+  <div class="menurow"><button id="homeBtn" class="btn ghost news">Go home</button><button id="newsBtn" class="btn ghost news">What's new · <span id="verLabel"></span></button></div>
   <div id="gpuWarn" class="hidden"><b>Chrome isn't using your graphics card</b>, so the game will be choppy, even on a gaming PC. To fix it, open Chrome's <b>Settings → System</b>, turn on <b>Use graphics acceleration when available</b>, and click <b>Relaunch</b>. If it's already on, type <b>chrome://gpu</b> in the address bar and check whether WebGL says Hardware accelerated.</div>
   <div id="caseList"></div>
+  <label class="hardToggle"><input type="checkbox" id="hardMode"> Detective mode: no objectives, no glinting clues</label>
   <div class="controls desk">WASD move · Shift run · Mouse look · E / click examine &amp; talk · F flashlight · Tab notebook · Esc pause</div>
   <div class="controls mob">Left thumb: move (push far to run) · Right thumb: look · tap the button that appears to examine &amp; talk</div>
   <div class="gpu muted">Graphics: <span id="gpuName"></span></div>
@@ -102,6 +103,7 @@
     <button id="resume" class="btn">Click to resume</button>
     <button id="openNb" class="btn ghost">Notebook</button>
     <label>Graphics <select id="sQuality"><option value="low">Low (fastest)</option><option value="medium">Medium</option><option value="high">High</option></select></label>
+    <label class="check"><input id="sHard" type="checkbox"> Detective mode (no hints)</label>
     <label class="check"><input id="sFps" type="checkbox"> Show FPS</label>
     <label class="check"><input id="sVoices" type="checkbox" checked> Voice acting <span class="muted" id="voiceCount"></span></label>
     <label>Brightness <input id="sBright" type="range" min="0.5" max="2.2" step="0.05"></label>
@@ -132,6 +134,25 @@
 <!-- FINGERPRINT -->
 <div id="printer" class="screen dim hidden">
   <div class="panel"><div id="printHost"></div><button id="pClose" class="btn ghost">Cancel</button></div>
+</div>
+
+<!-- INTERROGATION -->
+<div id="interro" class="hidden">
+  <div class="ibox">
+    <div class="ihead"><span id="iWho"></span><span id="iStrikes" title="Wrong presentations left"></span></div>
+    <div id="iLine"></div>
+    <div id="iCount" class="muted"></div>
+    <div class="row ibtns">
+      <button id="iPrev" class="btn ghost">◀</button>
+      <button id="iPress" class="btn ghost">Press</button>
+      <button id="iPresent" class="btn danger">Present evidence</button>
+      <button id="iNext" class="btn ghost">▶</button>
+      <button id="iCont" class="btn ghost">Continue ▸</button>
+      <button id="iLeave" class="btn ghost">Leave</button>
+    </div>
+    <div id="iPick" class="hidden"></div>
+  </div>
+  <div id="lieStamp">LIE</div>
 </div>
 
 <!-- NOTEBOOK -->
@@ -169,7 +190,7 @@
   <div class="endbox">
     <div id="eTitle"></div>
     <div id="eBody"></div>
-    <div id="eActs" class="row"><button id="eMenu" class="btn">Case files</button><button id="eRetry" class="btn ghost">Replay case</button></div>
+    <div id="eActs" class="row"><button id="eHome" class="btn">Go home</button><button id="eMenu" class="btn ghost">Case files</button><button id="eRetry" class="btn ghost">Replay case</button></div>
   </div>
 </div>
 

@@ -7,6 +7,8 @@
 //   <case>.good.<n> / <case>.bad.<suspect>.<n>         endings (narrator)
 //   man.<sound>               non-verbal sounds for the man in the morgue
 
+import { HOME_CAPTIONS } from './home.js';
+
 export const ROLES = {
   narrator: { name: 'The Detective (narrator)', note: 'Tired, quiet, flat. A noir voice-over: you have seen too much and you do not sleep. Never shout. Read the place-and-date cards slowly.' },
   reyes: { name: 'Officer Dana Reyes', note: 'Young patrol officer, relieved the detective is here, trying to stay professional. Shaken underneath.' },
@@ -22,6 +24,9 @@ export const ROLES = {
   ruth: { name: 'Ruth Harmon', note: "Nell's older sister. Frightened, raw from not sleeping, clinging to hope." },
   dag: { name: 'Dag Holm (mechanic)', note: 'Practical, gruff Scandinavian mechanic. Talks about engines, not feelings.' },
   silas: { name: 'Silas Crowe (hunting guide)', note: 'Cold, defensive loner who knows the whole town suspects him. Short sentences.' },
+  voss: { name: 'Gary Voss (interview room)', note: 'Thirties, sullen, monosyllabic. Defensive, then cornered. Never raises his voice.' },
+  crane: { name: 'Dr. Elias Crane (interview room)', note: 'Sixties, educated, soft-spoken and amused. Grief underneath the calm. The more he loses, the quieter he gets.' },
+  collector: { name: 'The Collector', note: 'Soft, polite, intimate, almost kind. Never threatening in tone. He believes he is your friend. Reads his letters slowly.' },
   man: { name: 'The man in the morgue', note: 'No words. Sounds only. The scarier and more wrong, the better. Record close to the mic.' },
 };
 
@@ -52,7 +57,25 @@ export function buildScript(CASES) {
       if (s.id === c.culprit) continue;
       c.endings.bad(s).text.forEach((t, i) => out.push({ id: `${c.id}.bad.${s.id}.${i}`, role: 'narrator', text: t, where: `${c.num}: bad ending (charged ${s.name})` }));
     }
+    const I = c.interrogation;
+    if (I) {
+      const add = (id, t, where) => { const sp = speakerOf(t); out.push({ id, role: sp === 'narrator' ? 'narrator' : I.role, text: stripSpeaker(t), where: `${c.num}: interview room, ${where}` }); };
+      I.intro.forEach((t, i) => add(`${I.id}.intro.${i}`, t, 'opening'));
+      I.statements.forEach((s, i) => {
+        out.push({ id: `${I.id}.s${i}`, role: I.role, text: s.t, where: `${c.num}: interview room, statement ${i + 1}` });
+        (s.press || []).forEach((t, k) => add(`${I.id}.p${i}.${k}`, t, `pressed on statement ${i + 1}`));
+        (s.crack || []).forEach((t, k) => add(`${I.id}.c${i}.${k}`, t, `caught lying on statement ${i + 1}`));
+      });
+      I.wrong.forEach((t, k) => add(`${I.id}.wrong.${k}`, t, 'wrong evidence'));
+      I.fail.forEach((t, k) => add(`${I.id}.fail.${k}`, t, 'shuts down'));
+      I.done.forEach((t, k) => add(`${I.id}.done.${k}`, t, 'cracks'));
+    }
   }
+  HOME_CAPTIONS.msgs.forEach((m, mi) => m.lines.forEach((t, i) => {
+    const sp = speakerOf(t);
+    out.push({ id: `home.msg.${mi}.${i}`, role: sp === 'narrator' ? m.who : sp === 'margaret' ? 'mom' : sp, text: stripSpeaker(t), where: 'Your apartment: answering machine message' });
+  }));
+  HOME_CAPTIONS.letters.forEach((l, k) => out.push({ id: `home.letter.${k}.0`, role: 'collector', text: l.lines.join(' '), where: 'Your apartment: letter under the door (read the whole letter)' }));
   for (const m of MAN) out.push({ ...m, role: 'man' });
   return out;
 }

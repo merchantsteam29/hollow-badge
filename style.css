@@ -29,6 +29,21 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); c
 #breathFill.low { background: #c0262c; }
 #tBreath { bottom: max(110px, env(safe-area-inset-bottom)); }
 #tBreath.on { background: rgba(90, 20, 20, 0.85); }
+#interro { position: fixed; inset: 0; z-index: 20; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; padding: 16px; background: linear-gradient(transparent 45%, rgba(0,0,0,0.85)); }
+#interro .ibox { width: min(860px, 100%); max-height: 62vh; overflow-y: auto; }
+#interro .ihead { display: flex; justify-content: space-between; font-family: 'Oswald', sans-serif; letter-spacing: 0.2em; color: var(--amber); text-transform: uppercase; }
+#iStrikes { color: #c0262c; letter-spacing: 0.3em; }
+#iLine { font-size: 22px; line-height: 1.45; margin: 10px 0 4px; min-height: 60px; }
+#iLine.testimony { font-family: 'Special Elite', monospace; font-size: 19px; color: #ead9c0; }
+#iLine.narr { font-style: italic; color: #b8b0a2; }
+#iLine s { color: var(--dim); } #iLine .after { color: #e88a7a; font-family: 'Cormorant Garamond', serif; font-size: 18px; }
+#iCount { font-family: 'Special Elite', monospace; font-size: 13px; }
+#interro .ibtns { justify-content: flex-start; margin-top: 10px; }
+#iPick { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
+#lieStamp { position: fixed; left: 50%; top: 38%; transform: translate(-50%, -50%) rotate(-12deg) scale(2.5); font-family: 'Oswald', sans-serif; font-weight: 700; font-size: 110px; letter-spacing: 0.15em; color: #c0262c; border: 8px solid #c0262c; padding: 0 28px; opacity: 0; pointer-events: none; }
+#lieStamp.on { animation: stamp 1.6s ease-out forwards; }
+@keyframes stamp { 0% { opacity: 0; transform: translate(-50%, -50%) rotate(-12deg) scale(2.5); } 12% { opacity: 1; transform: translate(-50%, -50%) rotate(-12deg) scale(1); } 75% { opacity: 1; } 100% { opacity: 0; transform: translate(-50%, -50%) rotate(-12deg) scale(1); } }
+body.touch #interro .opt { font-size: 14px; }
 #blackout { position: fixed; inset: 0; z-index: 35; background: #000; display: flex; align-items: center; justify-content: center; font-family: 'Special Elite', monospace; font-size: clamp(22px, 3vw, 34px); color: #c0262c; letter-spacing: 0.08em; opacity: 0; pointer-events: none; transition: opacity 0.2s; }
 #blackout.on { opacity: 1; }
 #letterbox i { position: fixed; left: 0; right: 0; height: 0; background: #000; z-index: 5; transition: height 0.8s ease; }
@@ -145,6 +160,10 @@ body.touch #fps { bottom: auto; top: 64px; right: 12px; }
   #caption { font-size: 17px; }
 }
 
+.hardToggle { display: flex; gap: 8px; align-items: center; margin-top: 22px; font-family: 'Special Elite', monospace; font-size: 14px; color: var(--dim); cursor: pointer; }
+.casecard .cont { margin-top: 12px; font-family: 'Oswald', sans-serif; letter-spacing: 0.08em; font-size: 14px; color: var(--amber); }
+.casecard .cont .over { float: right; color: var(--dim); text-decoration: underline; cursor: pointer; font-size: 12px; }
+.menurow { display: flex; gap: 10px; }
 .btn.news { margin: -22px 0 26px; font-size: 12px; padding: 7px 14px; }
 #newsBody .rel { margin-bottom: 18px; }
 #newsBody .rel h3 { font-family: 'Oswald', sans-serif; font-weight: 400; letter-spacing: 0.12em; font-size: 17px; margin: 0 0 6px; color: var(--ink); }

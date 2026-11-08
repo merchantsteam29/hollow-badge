@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import * as B from './builders.js';
 import { CASES } from './cases.js';
+import { HOME } from './home.js';
 import { Sound } from './audio.js';
 import { openPrint } from './fingerprint.js';
 import { Voices } from './voice.js';
@@ -224,7 +225,9 @@ function makeRain(count) {
 }
 
 // ---------- case lifecycle ----------
-function startCase(def) {
+function startCase(def, load = false) {
+  sound.stopLoops();
+  $('whatsnew').classList.add('hidden');
   disposeScene(scene);
   $('menu').classList.add('hidden'); $('pause').classList.add('hidden');
   voices.stop(); $('danger').style.opacity = 0; $('jolt').className = '';
@@ -240,7 +243,8 @@ function startCase(def) {
     dome.renderOrder = -1; dome.userData.dynamic = true; dome.userData.noCull = true; scene.add(dome);
     skyDome = dome;
   }
-  scene.add(new THREE.HemisphereLight(0x22304a, 0x080606, 1.1));
+  const hemi = new THREE.HemisphereLight(0x22304a, 0x080606, 1.1); scene.add(hemi);
+  const bolt = new THREE.DirectionalLight(0xe4ecff, 0); bolt.position.set(10, 60, -20); scene.add(bolt); // lightning (always present so shaders never recompile)
   const moon = new THREE.DirectionalLight(0x5a6e96, 0.45); moon.position.set(-30, 50, 10); scene.add(moon);
   scene.add(camera);
 
@@ -250,13 +254,20 @@ function startCase(def) {
     ui: null, cut: null, flashOn: true, flashFlicker: 0, t: 0, zone: null, ambience: null, nearest: null, perf: { t: 0, n: 0, checks: 0 },
   };
   B.init({ scene, colliders: G.colliders, lamps: G.lamps, lights: G.lights, anims: G.anims, cull: G.cull, camera, cheap: settings.quality === 'low' });
-  G.sky = skyDome;
+  G.sky = skyDome; G.hemi = hemi; G.bolt = bolt; G.restores = [];
   if (renderPass) renderPass.scene = scene;
   G.rain = def.snow ? makeSnow(Math.round(Q().rain * 0.8)) : makeRain(Q().rain); scene.add(G.rain);
   // suspects appear in a random order each playthrough (the killer must not always be first)
   G.suspects = def.suspects.slice();
   for (let i = G.suspects.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [G.suspects[i], G.suspects[j]] = [G.suspects[j], G.suspects[i]]; }
   def.build(api);
+  makeWatcher();
+  G.room = null; G.camOverride = null;
+  setupInterrogation();
+  // buzzing flickering lamps (3D)
+  for (const l of G.lamps) if (l.flicker) sound.loopAt([l.pos.x, 4, l.pos.z], 'hum');
+  const save = load ? readSave(def.id) : null;
+  if (save) applySave(save);
   B.staticBatch(scene);
   registerCulling();
   buildPool();
@@ -265,7 +276,114 @@ function startCase(def) {
   $('toasts').innerHTML = '';
   refresh();
   sound.ambience(def.rain, 0.05);
-  playIntro(def);
+  if (def.isHome) { G.rain.visible = false; G.stalk = null; $('caseLabel').textContent = 'HOME · ASHGROVE'; }
+  if (save || def.isHome) { // continuing (or home): skip the intro card
+    state = 'play'; $('hud').classList.remove('hidden'); $('intro').classList.add('hidden');
+    if (!def.isHome) toast(`Continuing ${def.title}: ${G.clues.size} clues in your notebook`);
+    lock();
+  } else playIntro(def);
+}
+
+// ---------- saving ----------
+const saveKey = (id) => 'hb_save_' + id;
+function readSave(id) { try { return JSON.parse(localStorage.getItem(saveKey(id)) || 'null'); } catch { return null; } }
+function clearSave(id) { try { localStorage.removeItem(saveKey(id)); } catch {} }
+function canSave() { return G && !G.def.isHome && state === 'play' && !G.cut && !G.frozen && !G.flags.chasing && !G.flags.hidePhase; }
+function saveGame() {
+  if (!canSave()) return;
+  const data = { v: 1, clues: [...G.clues], asked: [...G.asked], flags: G.flags, pos: [G.pos.x, G.pos.z], yaw: G.yaw, at: Date.now() };
+  try { localStorage.setItem(saveKey(G.def.id), JSON.stringify(data)); } catch {}
+}
+function applySave(s) {
+  for (const id of s.clues || []) G.clues.add(id);
+  for (const k of s.asked || []) G.asked.add(k);
+  Object.assign(G.flags, s.flags || {});
+  if (s.pos) G.pos.set(s.pos[0], 0, s.pos[1]);
+  if (typeof s.yaw === 'number') G.yaw = s.yaw;
+  for (const fn of G.restores) { try { fn(); } catch (e) { console.warn('restore failed', e); } }
+}
+
+// ---------- the watcher: stalker moments (the collector, glimpsed in every case) ----------
+function makeWatcher() {
+  const w = B.person(0, -200, { coat: 0x0b0b0e, coatLen: 'long', shirt: 0x2a2a2e, pants: 0x0b0b0e, hat: 'fedora', hatColor: 0x050506, glasses: true, glint: true, hair: 0x1a1a1a, skin: 0x8a8278, ry: 0, scale: 1.04, idle: false, look: false, collide: false });
+  w.visible = false; w.userData.noCull = true;
+  G.watcher = w; G.stalk = { next: 45 + Math.random() * 40, ev: null };
+}
+const _sv = new THREE.Vector3();
+// is there a clear line from the player to (x, z)? (2D slab test against every collider)
+function lineOfSight(x, z) {
+  const ox = G.pos.x, oz = G.pos.z, dx = x - ox, dz = z - oz;
+  for (const c of G.colliders) {
+    if (c.x1 - c.x0 < 0.8 && c.z1 - c.z0 < 0.8) continue; // ignore thin things like tree trunks and people
+    let t0 = 0, t1 = 1;
+    for (const [o, d, lo, hi] of [[ox, dx, c.x0, c.x1], [oz, dz, c.z0, c.z1]]) {
+      if (Math.abs(d) < 1e-9) { if (o < lo || o > hi) { t0 = 2; break; } continue; }
+      let a = (lo - o) / d, b = (hi - o) / d; if (a > b) [a, b] = [b, a];
+      t0 = Math.max(t0, a); t1 = Math.min(t1, b); if (t0 > t1) break;
+    }
+    if (t0 <= t1 && t0 < 0.97) return false;
+  }
+  return true;
+}
+function freeSpot(x, z) { for (const c of G.colliders) if (x > c.x0 - 0.6 && x < c.x1 + 0.6 && z > c.z0 - 0.6 && z < c.z1 + 0.6) return false; return true; }
+function spotAround(angleOff, dist) {
+  for (let tries = 0; tries < 14; tries++) {
+    const a = G.yaw + (Math.random() < 0.5 ? -1 : 1) * angleOff * (0.8 + Math.random() * 0.4), d = dist * (0.85 + Math.random() * 0.3);
+    const x = G.pos.x - Math.sin(a) * d, z = G.pos.z - Math.cos(a) * d;
+    if (freeSpot(x, z) && lineOfSight(x, z)) return [x, z];
+  }
+  return null;
+}
+function updateStalker(dt) {
+  const st = G.stalk, w = G.watcher;
+  if (!st || !w) return;
+  const busy = !api.playing() || G.flags.chasing || G.flags.hidePhase || G.flags.morgue && !G.flags.arrested;
+  const ev = st.ev;
+  if (ev) {
+    ev.t += dt;
+    if (ev.kind === 'glimpse') {
+      _sv.set(w.position.x - camera.position.x, 0, w.position.z - camera.position.z);
+      const d = _sv.length(); _sv.normalize();
+      camera.getWorldDirection(fwd); fwd.y = 0; fwd.normalize();
+      const looking = _sv.dot(fwd) > 0.93;
+      if (looking) ev.seen = (ev.seen || 0) + dt;
+      if (ev.seen > 0.3 || ev.t > 6 || d < 9 || busy) { w.visible = false; if (ev.seen > 0.3) sound.at(w.position, () => sound.whisper()); st.ev = null; }
+    } else if (ev.kind === 'steps') {
+      ev.next -= dt;
+      camera.getWorldDirection(fwd);
+      const behind = ev.dir;
+      if (fwd.x * behind.x + fwd.z * behind.z > 0.2) { st.ev = null; sound.at([G.pos.x + behind.x * 2, 0.2, G.pos.z + behind.z * 2], () => sound.burst(0.4, 300, 0.25)); }
+      else if (ev.next <= 0 && ev.n > 0) { ev.n--; ev.next = 0.48 + Math.random() * 0.1; sound.at([G.pos.x + behind.x * (3 + ev.n * 0.3), 0.1, G.pos.z + behind.z * (3 + ev.n * 0.3)], () => sound.step(false)); }
+      else if (ev.n <= 0) st.ev = null;
+    } else if (ev.kind === 'lightning') {
+      const on = (ev.t > 0 && ev.t < 0.13) || (ev.t > 0.24 && ev.t < 0.42);
+      G.hemi.intensity = on ? 4 : 1.1; G.bolt.intensity = on ? 7 : 0;
+      if (G.sky) G.sky.material.color.setScalar(on ? 3.5 : 1);
+      w.visible = !!ev.figure && on;
+      if (ev.t > 0.6) { G.hemi.intensity = 1.1; G.bolt.intensity = 0; if (G.sky) G.sky.material.color.setScalar(1); w.visible = false; st.ev = null; }
+    }
+    return;
+  }
+  if (busy || G.t < 40) return;
+  st.next -= dt;
+  if (st.next > 0) return;
+  st.next = 55 + Math.random() * 70;
+  const rainy = !G.def.snow && G.def.rain >= 0.1;
+  const roll = Math.random();
+  if (rainy && roll < 0.35) {
+    const p = spotAround(0.05, 26);
+    st.ev = { kind: 'lightning', t: -0.05, figure: !!p && Math.random() < 0.6 };
+    if (p && st.ev.figure) { w.position.set(p[0], 0, p[1]); w.rotation.y = Math.atan2(G.pos.x - p[0], G.pos.z - p[1]); }
+    sound.thunder(1.4 + Math.random());
+  } else if (roll < 0.7) {
+    const p = spotAround(0.75, 17);
+    if (!p) return;
+    w.position.set(p[0], 0, p[1]); w.rotation.y = Math.atan2(G.pos.x - p[0], G.pos.z - p[1]); w.visible = true;
+    st.ev = { kind: 'glimpse', t: 0 };
+  } else {
+    camera.getWorldDirection(fwd); fwd.y = 0; fwd.normalize();
+    st.ev = { kind: 'steps', t: 0, n: 4 + Math.floor(Math.random() * 3), next: 0.3, dir: new THREE.Vector3(-fwd.x, 0, -fwd.z) };
+  }
 }
 
 function playIntro(def) {
@@ -311,6 +429,7 @@ const api = {
     sound.clue();
     toast(`${c.type === 'evidence' ? 'EVIDENCE' : 'STATEMENT'} · ${c.title}`);
     refresh();
+    setTimeout(saveGame, 50);
   },
   talk: (w) => openDialog(w),
   inspect: (o) => openInspect(o),
@@ -321,6 +440,10 @@ const api = {
   refresh: () => refresh(),
   flash: (on) => { G.flashOn = on; if (!on) flash.intensity = 0; sound.click(); },
   ambience: (o) => { G.ambience = o; },
+  onRestore: (fn) => { G.restores.push(fn); },
+  get results() { return results; },
+  toMenu: () => toMenu(),
+  get hard() { return !!settings.hard; },
   // voice lines and scare effects
   voice: (id, opts) => voices.play(id, opts),
   hasVoice: (id) => voices.has(id),
@@ -366,9 +489,14 @@ const api = {
   },
 };
 
+function objectiveText() {
+  const t = G.def.objective(api);
+  if (!settings.hard) return t;
+  return G.flags.chasing || G.flags.hidePhase ? t : '';
+}
 function refresh() {
   if (!G) return;
-  $('objective').textContent = G.def.objective(api);
+  $('objective').textContent = objectiveText();
   const ready = G.def.required.every((id) => G.clues.has(id));
   $('objective').classList.toggle('ready', ready);
 }
@@ -488,6 +616,134 @@ function openPrintUI(o, done) {
   openPrint($('printHost'), o, () => { closeUI(); done && done(); });
 }
 
+// ---------- interrogation: catch the lie ----------
+// def.interrogation = { id, who, role, model, room, spots:[{pos,label,cond}], unlock(api), intro, statements:[{t, press, lie, crack, after}], wrong, fail, done, gives }
+// Progress lives in G.flags['int_' + id] = { broken: [indexes], strikes, state: 'open'|'done'|'failed' } so it is saved with the case.
+const IR = { x: 300, z: 300 };
+let iv = null; // live interrogation view state
+function intState(I) { const k = 'int_' + I.id; if (!G.flags[k]) G.flags[k] = { broken: [], strikes: 0, state: 'open' }; return G.flags[k]; }
+function setupInterrogation() {
+  const I = G.def.interrogation; if (!I) return;
+  for (const s of I.spots) {
+    api.interact({ pos: s.pos, radius: 2.8, label: s.label, cond: () => (!s.cond || s.cond(api)) && I.unlock(api) && intState(I).state === 'open' && !G.flags.chasing && !G.flags.hidePhase, use: () => openInterrogation() });
+  }
+}
+function buildInterviewRoom(I) {
+  if (G.room) return G.room;
+  const r = I.room || {}, x = IR.x, z = IR.z;
+  const room = new THREE.Mesh(new THREE.BoxGeometry(5, 3, 5), new THREE.MeshStandardMaterial({ color: r.wall ?? 0x3a3c40, roughness: 0.9, side: THREE.BackSide }));
+  room.position.set(x, 1.5, z); room.userData.noCull = true; scene.add(room);
+  B.box(1.8, 0.06, 0.9, r.table ?? 0x4a4c50, x, 0.74, z, { metal: 0.5, rough: 0.4 });
+  for (const [lx, lz] of [[-0.8, -0.4], [0.8, -0.4], [-0.8, 0.4], [0.8, 0.4]]) B.box(0.05, 0.74, 0.05, 0x2a2a2a, x + lx, 0, z + lz);
+  B.box(0.5, 0.05, 0.5, 0x2a2a2e, x, 0.46, z - 1.0); B.box(0.5, 0.6, 0.05, 0x2a2a2e, x, 0.48, z - 1.25);
+  const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.08, 10, 8), new THREE.MeshBasicMaterial({ color: r.lamp ?? 0xfff0d0 })); bulb.position.set(x, 2.3, z); scene.add(bulb);
+  const shade = new THREE.Mesh(new THREE.ConeGeometry(0.3, 0.22, 16, 1, true), B.mat(0x1a1a1a, { double: true })); shade.position.set(x, 2.42, z); scene.add(shade);
+  const light = B.light(x, 2.2, z, r.lamp ?? 0xfff0d0, 0, 7);
+  if (r.mirror) { const m = new THREE.Mesh(new THREE.PlaneGeometry(2.2, 1.0), B.mat(0x0a0c10, { rough: 0.05, metal: 0.95 })); m.position.set(x - 2.48, 1.6, z); m.rotation.y = Math.PI / 2; scene.add(m); }
+  const p = B.person(x, z - 1.0, { ...I.model, pose: 'sit', seatH: 0.5, ry: 0, idle: true, collide: false });
+  p.userData.noCull = true;
+  G.room = { light, person: p };
+  return G.room;
+}
+function openInterrogation() {
+  const I = G.def.interrogation, st = intState(I);
+  const room = buildInterviewRoom(I);
+  room.light.cur = 6;
+  iv = { I, st, mode: 'lines', lines: [], ids: [], li: 0, after: null, idx: 0, saved: { pos: G.pos.clone(), yaw: G.yaw, pitch: G.pitch, flash: G.flashOn } };
+  G.flashOn = false; flash.intensity = 0;
+  G.camOverride = { pos: new THREE.Vector3(IR.x, 1.3, IR.z + 1.55), look: new THREE.Vector3(IR.x, 1.25, IR.z - 1.0) };
+  openUI('interro');
+  $('iWho').textContent = I.who;
+  renderStrikes();
+  sayLines(I.intro, I.intro.map((_, i) => `${I.id}.intro.${i}`), () => showStatement(0));
+}
+function renderStrikes() { const n = iv.st.strikes; $('iStrikes').textContent = '●'.repeat(3 - n) + '○'.repeat(n); }
+function setButtons(mode) {
+  for (const id of ['iPrev', 'iNext', 'iPress', 'iPresent']) $(id).classList.toggle('hidden', mode !== 'testimony');
+  $('iCont').classList.toggle('hidden', mode !== 'lines');
+  $('iPick').classList.add('hidden');
+}
+function sayLines(lines, ids, done) {
+  iv.mode = 'lines'; iv.lines = lines; iv.ids = ids; iv.li = 0; iv.after = done;
+  setButtons('lines'); showLine();
+}
+function showLine() {
+  const t = iv.lines[iv.li];
+  $('iLine').textContent = t.replace(/^[A-Z]+:\s*/, ''); $('iLine').className = /^[A-Z]+:/.test(t) ? '' : 'narr';
+  $('iCount').textContent = '';
+  voices.play(iv.ids[iv.li]); sound.page();
+}
+function contLine() {
+  if (!iv || iv.mode !== 'lines') return;
+  iv.li++;
+  if (iv.li < iv.lines.length) { showLine(); return; }
+  const d = iv.after; iv.after = null; d && d();
+}
+function showStatement(i) {
+  const I = iv.I, n = I.statements.length;
+  iv.idx = ((i % n) + n) % n; iv.mode = 'testimony'; setButtons('testimony');
+  const s = I.statements[iv.idx], broken = iv.st.broken.includes(iv.idx);
+  $('iLine').innerHTML = broken ? `<s>${s.t}</s><br><span class="after">${s.after}</span>` : `“${s.t}”`;
+  $('iLine').className = 'testimony';
+  $('iCount').textContent = `Statement ${iv.idx + 1} of ${n}${broken ? ' · broken' : ''}`;
+  if (!broken) voices.play(`${I.id}.s${iv.idx}`);
+}
+function pressStatement() {
+  const s = iv.I.statements[iv.idx];
+  sayLines(s.press, s.press.map((_, k) => `${iv.I.id}.p${iv.idx}.${k}`), () => showStatement(iv.idx));
+}
+function openPicker() {
+  const pick = $('iPick'); pick.innerHTML = '<div class="muted">Present which clue against this statement?</div>';
+  for (const id of G.clues) {
+    const c = G.def.clues[id];
+    const b = document.createElement('button'); b.className = 'opt'; b.textContent = (c.type === 'evidence' ? 'EV · ' : 'ST · ') + c.title;
+    b.onclick = () => presentClue(id);
+    pick.appendChild(b);
+  }
+  const back = document.createElement('button'); back.className = 'opt leave'; back.textContent = 'Back'; back.onclick = () => showStatement(iv.idx); pick.appendChild(back);
+  pick.classList.remove('hidden');
+  for (const id of ['iPrev', 'iNext', 'iPress', 'iPresent']) $(id).classList.add('hidden');
+}
+function presentClue(id) {
+  const I = iv.I, s = I.statements[iv.idx], st = iv.st;
+  const lies = [].concat(s.lie || []);
+  if (lies.includes(id) && !st.broken.includes(iv.idx)) {
+    st.broken.push(iv.idx);
+    const stamp = $('lieStamp'); stamp.className = ''; void stamp.offsetWidth; stamp.className = 'on';
+    sound.stinger(); api.shake(0.5);
+    const left = I.statements.some((x, k) => x.lie && !st.broken.includes(k));
+    sayLines(s.crack, s.crack.map((_, k) => `${I.id}.c${iv.idx}.${k}`), () => {
+      if (left) { showStatement(iv.idx + 1); return; }
+      st.state = 'done';
+      sayLines(I.done, I.done.map((_, k) => `${I.id}.done.${k}`), () => { api.give(I.gives); closeInterrogation(); });
+    });
+    return;
+  }
+  st.strikes++; renderStrikes(); sound.burst(0.3, 300, 0.3); api.shake(0.25);
+  if (st.strikes >= 3) {
+    st.state = 'failed';
+    sayLines(I.fail, I.fail.map((_, k) => `${I.id}.fail.${k}`), () => closeInterrogation());
+    return;
+  }
+  const k = (st.strikes - 1) % I.wrong.length;
+  sayLines([I.wrong[k]], [`${I.id}.wrong.${k}`], () => showStatement(iv.idx));
+}
+function closeInterrogation() {
+  if (!iv) return;
+  const s = iv.saved; iv = null;
+  voices.stop();
+  if (G.room) G.room.light.cur = 0;
+  G.camOverride = null; G.pos.copy(s.pos); G.yaw = s.yaw; G.pitch = s.pitch; G.flashOn = s.flash;
+  closeUI();
+  refresh();
+}
+$('iCont').onclick = contLine;
+$('iNext').onclick = () => showStatement(iv.idx + 1);
+$('iPrev').onclick = () => showStatement(iv.idx - 1);
+$('iPress').onclick = pressStatement;
+$('iPresent').onclick = openPicker;
+$('iLeave').onclick = () => closeInterrogation();
+
 // ---------- notebook ----------
 function openNotebook() {
   openUI('notebook');
@@ -506,7 +762,7 @@ function openNotebook() {
     d.innerHTML = `<b>${s.name}</b><em>${s.role}</em>` + notes.map((n) => `<span>· ${n.t}</span>`).join('');
     su.appendChild(d);
   }
-  $('nbObjective').textContent = G.def.objective(api);
+  $('nbObjective').textContent = objectiveText();
   sound.page();
 }
 
@@ -519,7 +775,7 @@ function openBoard() {
   $('bTitle').textContent = `${def.num} — ${def.title.toUpperCase()}`;
   $('bStatus').innerHTML = ready
     ? 'You have enough to make a charge. Choose carefully. There is no second chance.'
-    : `Key evidence: <b>${have} / ${def.required.length}</b>. Not enough to charge anyone yet.<br><span class="muted">${def.objective(api)}</span>`;
+    : `Key evidence: <b>${have} / ${def.required.length}</b>. Not enough to charge anyone yet.<br><span class="muted">${objectiveText()}</span>`;
   const list = $('bSuspects'); list.innerHTML = '';
   for (const s of G.suspects) {
     const notes = s.notes.filter((n) => !n.req || G.clues.has(n.req));
@@ -581,7 +837,9 @@ function accuse(s, chosen = []) {
   const right = s.id === def.culprit, proven = chosen.length > 0 && chosen.every((id) => def.proof.includes(id));
   const good = right && proven, weak = right && !proven;
   const end = good ? def.endings.good : weak ? def.endings.weak : def.endings.bad(s);
-  results[def.id] = good ? 'solved' : (results[def.id] === 'solved' ? 'solved' : 'failed'); saveResults();
+  results[def.id] = good ? 'solved' : (results[def.id] === 'solved' ? 'solved' : 'failed');
+  if (good && settings.hard) results[def.id + '_hard'] = true;
+  saveResults(); clearSave(def.id);
   $('board').classList.add('hidden'); G.ui = null;
   state = 'ending'; $('hud').classList.add('hidden');
   sound.ambience(0.04, 0.03); if (good) sound.heartbeat(3, 1.4); else sound.stinger();
@@ -592,8 +850,9 @@ function accuse(s, chosen = []) {
   $('eActs').style.animationDelay = `${1 + end.text.length * 1.8}s`;
   voices.chain(end.text.map((_, i) => (good ? `${def.id}.good.${i}` : weak ? `${def.id}.weak.${i}` : `${def.id}.bad.${s.id}.${i}`)), 450);
 }
+$('eHome').onclick = () => { voices.stop(); $('ending').classList.add('hidden'); startCase(HOME); };
 $('eMenu').onclick = () => { voices.stop(); $('ending').classList.add('hidden'); toMenu(); };
-$('eRetry').onclick = () => { voices.stop(); $('ending').classList.add('hidden'); startCase(G.def); };
+$('eRetry').onclick = () => { voices.stop(); $('ending').classList.add('hidden'); clearSave(G.def.id); startCase(G.def); };
 
 // ---------- cutscene ----------
 function startCutscene(steps, done) {
@@ -650,8 +909,11 @@ function toMenu() {
   for (const def of CASES) {
     const r = results[def.id];
     const card = document.createElement('button'); card.className = 'casecard';
-    card.innerHTML = `<div class="cnum">${def.num}${r ? ` <span class="res ${r}">${r === 'solved' ? 'SOLVED' : 'UNSOLVED'}</span>` : ''}</div><div class="ctitle">${def.title}</div><div class="cplace">${def.place} · ${def.date}</div><div class="cblurb">${def.blurb}</div>`;
-    card.onclick = () => { sound.init(); $('menu').classList.add('hidden'); startCase(def); };
+    const sv = readSave(def.id);
+    card.innerHTML = `<div class="cnum">${def.num}${r ? ` <span class="res ${r}">${r === 'solved' ? 'SOLVED' : 'UNSOLVED'}${results[def.id + '_hard'] ? ' ★' : ''}</span>` : ''}</div><div class="ctitle">${def.title}</div><div class="cplace">${def.place} · ${def.date}</div><div class="cblurb">${def.blurb}</div>`
+      + (sv ? `<div class="cont">▶ Continue · ${(sv.clues || []).length} clues <span class="over">start over</span></div>` : '');
+    card.onclick = () => { sound.init(); $('menu').classList.add('hidden'); startCase(def, !!sv); };
+    if (sv) card.querySelector('.over').onclick = (e) => { e.stopPropagation(); sound.init(); clearSave(def.id); $('menu').classList.add('hidden'); startCase(def); };
     list.appendChild(card);
   }
   $('menu').classList.remove('hidden');
@@ -668,7 +930,12 @@ function openNews() {
   try { localStorage.setItem('hb_seen_version', VERSION); } catch {}
 }
 $('verLabel').textContent = 'v' + VERSION;
+for (const id of ['hardMode', 'sHard']) {
+  $(id).checked = !!settings.hard;
+  $(id).onchange = () => { settings.hard = $(id).checked; $('hardMode').checked = $('sHard').checked = settings.hard; saveSettings(); if (G) refresh(); };
+}
 $('newsBtn').onclick = openNews;
+$('homeBtn').onclick = () => { sound.init(); startCase(HOME); };
 $('newsClose').onclick = () => $('whatsnew').classList.add('hidden');
 $('whatsnew').addEventListener('click', (e) => { if (e.target.id === 'whatsnew') $('whatsnew').classList.add('hidden'); });
 $('warnOk').onclick = () => { sound.init(); sound.setVolume(settings.vol); $('warning').classList.add('hidden'); toMenu();
@@ -711,6 +978,13 @@ addEventListener('keydown', (e) => {
     if (['Space', 'Enter', 'KeyE'].includes(e.code)) { if (dlg && dlg.lines) advance(); e.preventDefault(); }
     else if (e.code === 'Escape' && dlg && !dlg.lines) { dlg = null; voices.stop(); closeUI(); }
     else if (/^Digit[1-9]$/.test(e.code) && dlg && !dlg.lines) { const b = $('dOpts').querySelectorAll('.opt:not(.leave)')[+e.code.slice(5) - 1]; b && b.click(); }
+    return;
+  }
+  if (G.ui === 'interro') {
+    if (['Space', 'Enter', 'KeyE'].includes(e.code)) { e.preventDefault(); if (iv && iv.mode === 'lines') contLine(); }
+    else if (e.code === 'ArrowRight' && iv && iv.mode === 'testimony') showStatement(iv.idx + 1);
+    else if (e.code === 'ArrowLeft' && iv && iv.mode === 'testimony') showStatement(iv.idx - 1);
+    else if (e.code === 'Escape') closeInterrogation();
     return;
   }
   if (G.ui === 'inspect') { if (['KeyE', 'Escape', 'Enter'].includes(e.code)) finishInspect(); return; }
@@ -871,7 +1145,7 @@ function updateInteract() {
     const ok = !it.cond || it.cond();
     if (it.sprite) {
       const dist = it.sprite.position.distanceTo(camera.position);
-      it.sprite.visible = ok && dist < 16;
+      it.sprite.visible = ok && dist < 16 && !settings.hard;
       it.sprite.material.opacity = 0.25 + 0.3 * (0.5 + 0.5 * Math.sin(G.t * 3 + it.pos.x));
     }
     if (!ok) continue;
@@ -989,11 +1263,14 @@ function frame(now) {
     camera.position.x += (Math.random() - 0.5) * G.shake * 0.12; camera.position.y += (Math.random() - 0.5) * G.shake * 0.1;
     camera.rotation.z += (Math.random() - 0.5) * G.shake * 0.06; G.shake = Math.max(0, G.shake - dt * 1.4);
   }
+  if (G.camOverride) { camera.position.copy(G.camOverride.pos); camera.lookAt(G.camOverride.look); if (G.rain) G.rain.visible = false; }
   if (G.sky) G.sky.position.copy(camera.position);
+  camera.getWorldDirection(fwd); sound.setListener(camera.position, fwd);
+  if (state === 'play') { updateStalker(dt); G.saveT = (G.saveT || 0) + dt; if (G.saveT > 6) { G.saveT = 0; saveGame(); } }
   updatePool();
   updateCulling();
   updateFps(dt);
-  updateRain(dt);
+  if (!G.def.isHome) updateRain(dt);
   if (state === 'play' && !G.cut && !G.ui) autoQuality(dt);
   if (composer && renderPass && renderPass.scene === scene) { gradePass.uniforms.time.value = G.t % 50; composer.render(); }
   else renderer.render(scene, camera);

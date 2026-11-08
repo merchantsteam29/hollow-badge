@@ -33,6 +33,61 @@ export class Sound {
     lp.connect(this.droneGain).connect(this.master);
   }
 
+  // ---------- 3D sound ----------
+  // the listener follows the camera; at(pos, fn) plays whatever fn makes from that point in the world
+  setListener(p, f) {
+    if (!this.ctx) return;
+    const L = this.ctx.listener;
+    if (L.positionX) {
+      L.positionX.value = p.x; L.positionY.value = p.y; L.positionZ.value = p.z;
+      L.forwardX.value = f.x; L.forwardY.value = f.y; L.forwardZ.value = f.z; L.upX.value = 0; L.upY.value = 1; L.upZ.value = 0;
+    } else { L.setPosition(p.x, p.y, p.z); L.setOrientation(f.x, f.y, f.z, 0, 1, 0); }
+  }
+  panner(pos) {
+    const p = this.ctx.createPanner();
+    p.panningModel = 'HRTF'; p.distanceModel = 'inverse'; p.refDistance = 2; p.maxDistance = 80; p.rolloffFactor = 1.4;
+    const [x, y, z] = Array.isArray(pos) ? pos : [pos.x, pos.y ?? 1.2, pos.z];
+    if (p.positionX) { p.positionX.value = x; p.positionY.value = y; p.positionZ.value = z; } else p.setPosition(x, y, z);
+    p.connect(this.master);
+    return p;
+  }
+  at(pos, fn) {
+    if (!this.ctx) return fn();
+    const p = this.panner(pos);
+    this._dest = p;
+    try { fn(); } finally { this._dest = null; }
+    setTimeout(() => { try { p.disconnect(); } catch {} }, 8000);
+  }
+  // looping sounds placed in the world: 'hum' (flickering lamp, neon), 'fire' (barrel fire)
+  loopAt(pos, kind) {
+    if (!this.ctx) return null;
+    const c = this.ctx, p = this.panner(pos), nodes = [];
+    if (kind === 'hum') {
+      const g = c.createGain(); g.gain.value = 0.035; g.connect(p);
+      const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 520; lp.connect(g);
+      for (const [f, type] of [[120, 'sawtooth'], [60, 'sine'], [240, 'square']]) { const o = c.createOscillator(); o.type = type; o.frequency.value = f + Math.random() * 0.6; const og = c.createGain(); og.gain.value = type === 'square' ? 0.15 : 1; o.connect(og).connect(lp); o.start(); nodes.push(o); }
+    } else if (kind === 'fire') {
+      const src = c.createBufferSource(); src.buffer = this.noise; src.loop = true;
+      const bp = c.createBiquadFilter(); bp.type = 'lowpass'; bp.frequency.value = 700;
+      const g = c.createGain(); g.gain.value = 0.09; src.connect(bp).connect(g).connect(p); src.start(); nodes.push(src);
+      const iv = setInterval(() => { if (Math.random() < 0.6) { this._dest = p; this.burst(0.03 + Math.random() * 0.05, 2500 + Math.random() * 2500, 0.12 + Math.random() * 0.15, 'bandpass'); this._dest = null; } }, 140);
+      nodes.push({ stop: () => clearInterval(iv) });
+    }
+    const h = { stop: () => { for (const n of nodes) { try { n.stop(); } catch {} } try { p.disconnect(); } catch {} } };
+    (this.loops = this.loops || []).push(h);
+    return h;
+  }
+  stopLoops() { for (const h of this.loops || []) h.stop(); this.loops = []; }
+  thunder(delay = 1.2) {
+    if (!this.ctx) return;
+    setTimeout(() => {
+      const c = this.ctx, t = c.currentTime, s = c.createBufferSource(); s.buffer = this.noise;
+      const f = c.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 140;
+      const g = c.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.7, t + 0.15); g.gain.exponentialRampToValueAtTime(0.25, t + 1.2); g.gain.exponentialRampToValueAtTime(0.0001, t + 3.8);
+      s.connect(f).connect(g).connect(this.master); s.start(t); s.stop(t + 4);
+    }, delay * 1000);
+  }
+  whisper() { this.burst(0.7, 3200, 0.06, 'bandpass'); this.burst(0.5, 1800, 0.04, 'bandpass'); }
   setVolume(v) { this.vol = v; if (this.master) this.master.gain.value = v; }
   ambience(rain, drone) {
     if (!this.ctx) return;
@@ -47,7 +102,7 @@ export class Sound {
     const s = c.createBufferSource(); s.buffer = this.noise;
     const f = c.createBiquadFilter(); f.type = type; f.frequency.value = freq;
     const g = c.createGain(); g.gain.setValueAtTime(gain, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    s.connect(f).connect(g).connect(this.master);
+    s.connect(f).connect(g).connect(this._dest || this.master);
     s.start(t, Math.random() * 1.5); s.stop(t + dur + 0.05);
   }
   tone(freq, dur, gain, type = 'sine', delay = 0) {
@@ -56,7 +111,7 @@ export class Sound {
     const o = c.createOscillator(); o.type = type; o.frequency.value = freq;
     const g = c.createGain(); g.gain.setValueAtTime(0.0001, t);
     g.gain.exponentialRampToValueAtTime(gain, t + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    o.connect(g).connect(this.master); o.start(t); o.stop(t + dur + 0.05);
+    o.connect(g).connect(this._dest || this.master); o.start(t); o.stop(t + dur + 0.05);
   }
 
   step(run) { this.burst(run ? 0.09 : 0.11, 500 + Math.random() * 300, run ? 0.22 : 0.15); }
@@ -71,7 +126,7 @@ export class Sound {
     const o = c.createOscillator(); o.type = 'sawtooth'; o.frequency.setValueAtTime(42, t); o.frequency.linearRampToValueAtTime(30, t + 2.2);
     const f = c.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 160;
     const g = c.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.18, t + 0.4); g.gain.exponentialRampToValueAtTime(0.0001, t + 2.4);
-    o.connect(f).connect(g).connect(this.master); o.start(t); o.stop(t + 2.5);
+    o.connect(f).connect(g).connect(this._dest || this.master); o.start(t); o.stop(t + 2.5);
     setTimeout(() => { this.burst(0.25, 220, 0.45); this.tone(60, 0.3, 0.3, 'sine'); }, 2900);
   }
   gasp() { this.burst(0.45, 1300, 0.28, 'bandpass'); this.tone(320, 0.25, 0.05, 'triangle'); }

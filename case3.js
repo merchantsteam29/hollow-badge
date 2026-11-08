@@ -35,7 +35,32 @@ export const HARROW = {
   fog: 0.045, rain: 0.06, snow: true, spawn: { x: 1.5, z: 23, yaw: 0 },
   sky: { top: '#090c12', mid: '#161c24', horizon: '#262c34', moon: true, clouds: 'rgba(120,130,145,0.4)' },
   required: ['ledger', 'liftpass', 'freezer'],
-  proof: ['ledger', 'liftpass', 'freezer', 'table', 'nogame', 'van3', 'calendar', 'plow'],
+  proof: ['ledger', 'liftpass', 'freezer', 'table', 'nogame', 'van3', 'calendar', 'plow', 'walt_lied'],
+  interrogation: {
+    id: 'walt_i', who: 'Walt Ebner', role: 'walt',
+    model: { build: 'heavy', old: true, coat: 0x6a2a22, coatLen: 'none', shirt: 0x5a2420, apron: 0xd8d2c4, pants: 0x2a2a2e, hair: 0xd8d6d0, hairStyle: 'bald', beard: true, glasses: true, skin: 0xb08a74, arms: 'clasp' },
+    room: { wall: 0x5a2420, lamp: 0xffc890, table: 0x8a8478 },
+    spots: [
+      { pos: [7.0, 1.5, 15.6], label: 'Sit down with Walt and press him', cond: (api) => !api.flags.meeting },
+      { pos: [-6.8, 1.5, 18.6], label: 'Pull Walt aside and press him', cond: (api) => api.flags.meeting && !api.flags.hidePhase && !api.flags.escaped },
+    ],
+    unlock: (api) => api.has('ledger') && api.has('nogame'),
+    intro: ['WALT: Sit, sit. You look like you have not eaten in days.', 'WALT: Ask me anything, Detective. I have nothing to hide from you.'],
+    statements: [
+      { t: "I had a full freezer when the storm hit. That's how I've kept everyone fed.", press: ['WALT: Restaurant freezer. You would be amazed what fits.'], lie: 'ledger',
+        crack: ['WALT: ...Well. I found more. In the back.', 'He refills the coffee you did not ask for.'], after: 'His own log says no meat since Dec 11.' },
+      { t: 'Silas sold me venison, once the beef ran out. Good man, Silas, whatever they say.', press: ['WALT: Paid cash. Shook his hand.'], lie: 'nogame',
+        crack: ['WALT: Did he say that?', 'The smile stays. The eyes do not.'], after: 'Silas has never sold Walt an ounce of game.' },
+      { t: 'And that Reese boy? Never met him. He never came in here.', press: ['WALT: Kids like that drift through every winter.'], lie: 'liftpass',
+        crack: ['WALT: The hut is open to anybody. Kids go out there to drink.', 'WALT: You should eat something, Detective. It is going to be a long night.'], after: "Toby's lift pass was frozen into the floor of Walt's hut." },
+      { t: 'Everyone in this town is family to me.', press: ['WALT: When the plows come, they will all thank me. You will see.'] },
+    ],
+    wrong: ['WALT: I am not sure what you mean by that.', 'WALT: Oh, that is nothing. Do not worry yourself.', 'WALT: Here, have some more coffee.'],
+    fail: ['WALT: I think you need to rest. We can talk tomorrow.', 'He turns away to wipe the counter, humming.'],
+    done: ['WALT: You have had a long day.', 'WALT: I will save you a bowl.'],
+    gives: 'walt_lied',
+  },
+
   culprit: 'walt',
   clues: {
     walt_missing: { type: 'statement', title: 'Walt — the missing', text: 'Nell Harmon, waitress, walked home Dec 12 and never arrived. Gus Lindqvist, plow driver, his truck found on the lake road Dec 16. Toby Reese, 19, gone two nights ago.' },
@@ -55,6 +80,7 @@ export const HARROW = {
     ledger: { type: 'evidence', title: 'Diner provisions log', text: 'Clipped to the empty delivery crates: last delivery Dec 11. Beef 0, pork 0, chicken 0 as of Dec 14. Stew served nightly since.' },
     liftpass: { type: 'evidence', title: "Toby's lift pass", text: 'Frozen into the floor of an ice-fishing hut on the lake. EBNER is painted on the hut door.' },
     freezer: { type: 'evidence', title: "Walt's chest freezer", text: 'Packages in butcher paper, tied with string, labelled in a neat hand: N.H. 12/13. G.L. 12/17. T.R. 12/20. There is a lot of room left.' },
+    walt_lied: { type: 'statement', title: 'Walt: caught lying', text: 'Walt said he had a full freezer, that Silas sold him venison, and that he never met Toby. His own log, Silas and the ice hut say otherwise. He never stopped smiling.' },
     table: { type: 'evidence', title: "Walt's dinner table", text: 'Set for five with the good plates. Place cards: NELL. GUS. TOBY. Two cards blank.' },
   },
   suspects: [
@@ -286,7 +312,7 @@ export const HARROW = {
       cond: () => doorOpen === 0,
       use: () => {
         if (!api.flags.meeting) { api.inspect({ title: "Walt's house", text: ['The little house behind the diner. Walt\'s. The lights are off and the door is locked.', 'You would need a very good reason to go in without him.'] }); return; }
-        api.sound.door(); doorOpen = 0.001;
+        api.sound.door(); doorOpen = 0.001; api.flags.houseOpen = true;
         const i = api.colliders.indexOf(doorBlock); if (i >= 0) api.colliders.splice(i, 1);
       },
     });
@@ -335,7 +361,7 @@ export const HARROW = {
       walt.visible = false; walt.userData.noLook = true; wFlash.intensity = 0;
       if (first) {
         api.caption(C(0).text, C(0).vo, 3000);
-        api.sound.car();
+        api.sound.at([7, 1, -8], () => api.sound.car());
         let s = 0; const sweep = (dt) => { s += dt; headSweep.pos.set(5 + s * 1.5, 1.3, -6 - s * 6); headSweep.cur = s < 2.5 ? 30 : 0; return s > 2.5; };
         const fn = (dt) => { if (sweep(dt)) api.anims.splice(api.anims.indexOf(fn), 1); }; api.anims.push(fn);
         setTimeout(() => { if (api.flags.hidePhase === 'countdown') api.caption(C(1).text, C(1).vo, 3000); }, 3200);
@@ -390,7 +416,7 @@ export const HARROW = {
         if (hide.t <= 0) {
           api.flags.hidePhase = 'search'; api.refresh();
           walt.visible = true; walt.position.set(9.4, 0, -14); walt.rotation.y = Math.PI / 2;
-          api.sound.door();
+          api.sound.at([10.5, 1.5, -14], () => api.sound.door());
           if (!hide.spot) { caught('He was standing in the doorway. Smiling.'); return; }
         }
         return;
@@ -432,7 +458,14 @@ export const HARROW = {
       if (dist < 2.4 && (!hide.holding || hide.gasp > 0)) { caught(hide.gasp > 0 ? 'He heard you gasp.' : 'He heard you breathing.'); return; }
       if (dist < 3.8 && hide.gasp > 0) { caught('He heard you gasp.'); return; }
       hide.beat = (hide.beat || 0) - dt; if (hide.beat <= 0) { hide.beat = 0.35 + dist * 0.12; api.sound.heartbeat(1); }
-      hide.step = (hide.step || 0) - dt; if (hide.step <= 0 && d > 0.05) { hide.step = 0.55; api.sound.step(false); }
+      hide.step = (hide.step || 0) - dt; if (hide.step <= 0 && d > 0.05) { hide.step = 0.55; api.sound.at(walt.position, () => api.sound.step(false)); }
+    });
+    api.sound.loopAt([8.4, 3.7, 14], 'hum');
+    api.onRestore(() => {
+      if (api.flags.meeting) { walt.position.set(-7.4, 0, 17.6); walt.rotation.y = Math.PI / 2; }
+      if (api.flags.houseOpen) { doorOpen = 1; hdoor.rotation.y = -1.6; const i = api.colliders.indexOf(doorBlock); if (i >= 0) api.colliders.splice(i, 1); }
+      if (api.has('freezer')) { lidOpen = 1; lid.rotation.x = -1.2; }
+      if (api.flags.escaped) walt.visible = false;
     });
     api.ambience({ zone: () => 'town' });
   },
