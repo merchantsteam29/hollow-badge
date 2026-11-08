@@ -9,7 +9,7 @@ Hollow Badge is a first-person 3D detective game that runs in the browser. You w
 - **Case 03: The Long Winter.** Harrow Falls, snowed in for nine days. Three people missing.
 - **Case 04: The Collector.** The finale, in your own city.
 
-**Play:** https://merchantsteam29.github.io/hollow-badge/ (current version: v4.0, see [CHANGELOG.md](CHANGELOG.md))
+**Play:** https://merchantsteam29.github.io/hollow-badge/ (current version: v4.0.1, see [CHANGELOG.md](CHANGELOG.md))
 
 **Run locally:** run `node serve.js`, then open http://localhost:8080
 
@@ -17,20 +17,13 @@ Hollow Badge is a first-person 3D detective game that runs in the browser. You w
 
 Built with plain HTML, ES modules and Three.js 0.160. There is no build step.
 
-## Voice acting
+## Voices
 
-Actors record their lines at **https://merchantsteam29.github.io/hollow-badge/record.html**: they pick a character, hold Space while reading each line, and click **Download my recordings** to get a .zip.
-
-To add the recordings to the game:
-1. Unzip each actor's .zip into this folder. Each one contains a `voices/` folder; merge it with this one.
-2. Run `node tools/voices.mjs` to rebuild `voices/manifest.json`.
-3. Commit and push.
-
-Any line nobody recorded stays silent and shows its subtitle as usual. Players can turn voices off in the pause menu.
+Hollow Badge is fully subtitled, with no spoken dialogue. (The voice system is still in the code, unused: if recordings are ever added to `voices/` and `node tools/voices.mjs` is run, the game plays them automatically.)
 
 ## Credits
 
-Edit `credits.js` to add your voice cast and playtesters to the credits roll (empty sections are skipped).
+Edit `credits.js` to add playtesters to the credits roll (empty sections are skipped).
 
 ## Controllers
 

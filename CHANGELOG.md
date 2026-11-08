@@ -2,6 +2,10 @@
 
 Play: https://merchantsteam29.github.io/hollow-badge/
 
+## v4.0.1: Fully subtitled (2026-11-07)
+
+- Hollow Badge is fully subtitled with no spoken dialogue. The voice-actor recording link has been removed from the menu.
+
 ## v4.0: The Final Cut (2026-11-07)
 
 - A living title screen: the menu drifts down a rainy Ashgrove street at night.

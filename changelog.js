@@ -1,8 +1,12 @@
 // Release notes, shown in the game's "What's new" panel and mirrored in CHANGELOG.md.
 // Add the newest version at the top and bump VERSION.
-export const VERSION = '4.0';
+export const VERSION = '4.0.1';
 
 export const NOTES = [
+  {
+    v: '4.0.1', date: '2026-11-07', title: 'Fully subtitled',
+    items: ['Hollow Badge is fully subtitled with no spoken dialogue. The voice-actor recording link has been removed from the menu.'],
+  },
   {
     v: '4.0', date: '2026-11-07', title: 'The Final Cut',
     items: [
