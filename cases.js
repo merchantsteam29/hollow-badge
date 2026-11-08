@@ -1,6 +1,7 @@
 // Case data + level builders. Each case: story, clues, suspects, witnesses, build(api).
 import * as THREE from 'three';
 import { HARROW } from './case3.js';
+import { ASHGROVE } from './case4.js';
 
 /* ============================================================
    CASE 1 — CMARY TOWN — SEPTEMBER 9TH
@@ -917,4 +918,4 @@ const W_MORROW = {
   ],
 };
 
-export const CASES = [CMARY, WING, HARROW];
+export const CASES = [CMARY, WING, HARROW, ASHGROVE];

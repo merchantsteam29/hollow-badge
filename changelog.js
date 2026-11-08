@@ -1,8 +1,17 @@
 // Release notes, shown in the game's "What's new" panel and mirrored in CHANGELOG.md.
 // Add the newest version at the top and bump VERSION.
-export const VERSION = '2.3';
+export const VERSION = '3.0';
 
 export const NOTES = [
+  {
+    v: '3.0', date: '2026-11-07', title: 'Case 04: The Collector',
+    items: [
+      'The finale. Ashgrove, your own city. You come home and your door is open.',
+      'Four exhibits hidden around the city, a payphone that rings for you, and a typewriter with a bent e.',
+      'Three suspects, one interrogation, and a basement you should never have found.',
+      'Opens once you have finished Cases 01 to 03.',
+    ],
+  },
   {
     v: '2.3', date: '2026-11-07', title: 'Home',
     items: [

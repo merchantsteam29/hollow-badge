@@ -6,8 +6,10 @@ Hollow Badge is a first-person 3D detective game that runs in the browser. You w
 
 - **Case 01: The Rowe Girl.** Set in Cmary Town on September 9th. Lily Rowe, 11, never came home from school.
 - **Case 02: The Tallyman.** Set in Wingintonn Town. A serial killer leaves a stopped watch at every scene.
+- **Case 03: The Long Winter.** Harrow Falls, snowed in for nine days. Three people missing.
+- **Case 04: The Collector.** The finale, in your own city.
 
-**Play:** https://merchantsteam29.github.io/hollow-badge/ (current version: v2.3, see [CHANGELOG.md](CHANGELOG.md))
+**Play:** https://merchantsteam29.github.io/hollow-badge/ (current version: v3.0, see [CHANGELOG.md](CHANGELOG.md))
 
 **Run locally:** run `node serve.js`, then open http://localhost:8080
 

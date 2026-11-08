@@ -2,6 +2,13 @@
 
 Play: https://merchantsteam29.github.io/hollow-badge/
 
+## v3.0: Case 04: The Collector (2026-11-07)
+
+- The finale. Ashgrove, your own city. You come home and your door is open.
+- Four exhibits hidden around the city, a payphone that rings for you, and a typewriter with a bent e.
+- Three suspects, one interrogation, and a basement you should never have found.
+- Opens once you have finished Cases 01 to 03.
+
 ## v2.3: Home (2026-11-07)
 
 - Your apartment in Ashgrove: go home from the menu or after any case.

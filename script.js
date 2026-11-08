@@ -26,6 +26,9 @@ export const ROLES = {
   silas: { name: 'Silas Crowe (hunting guide)', note: 'Cold, defensive loner who knows the whole town suspects him. Short sentences.' },
   voss: { name: 'Gary Voss (interview room)', note: 'Thirties, sullen, monosyllabic. Defensive, then cornered. Never raises his voice.' },
   crane: { name: 'Dr. Elias Crane (interview room)', note: 'Sixties, educated, soft-spoken and amused. Grief underneath the calm. The more he loses, the quieter he gets.' },
+  lund: { name: 'Dr. Iris Lund (department psychologist)', note: 'Fifties, warm, calm, a therapist\'s gentle voice. Never raises it. Even when caught, she sounds like she is taking care of you. The collector letters and phone call are also her, if one actor plays both.' },
+  pell: { name: 'Mr. Pell (landlord)', note: 'Seventies, fussy, nervous, defensive about his building.' },
+  vance: { name: 'Ray Vance (old partner)', note: 'Sixties, gravelly, bitter, drinking. Underneath it, scared for you.' },
   collector: { name: 'The Collector', note: 'Soft, polite, intimate, almost kind. Never threatening in tone. He believes he is your friend. Reads his letters slowly.' },
   man: { name: 'The man in the morgue', note: 'No words. Sounds only. The scarier and more wrong, the better. Record close to the mic.' },
 };

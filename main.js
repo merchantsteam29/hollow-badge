@@ -337,7 +337,7 @@ function spotAround(angleOff, dist) {
 function updateStalker(dt) {
   const st = G.stalk, w = G.watcher;
   if (!st || !w) return;
-  const busy = !api.playing() || G.flags.chasing || G.flags.hidePhase || G.flags.morgue && !G.flags.arrested;
+  const busy = !api.playing() || G.flags.chasing || G.flags.hidePhase || G.flags.inGallery || G.flags.morgue && !G.flags.arrested;
   const ev = st.ev;
   if (ev) {
     ev.t += dt;
@@ -367,7 +367,7 @@ function updateStalker(dt) {
   if (busy || G.t < 40) return;
   st.next -= dt;
   if (st.next > 0) return;
-  st.next = 55 + Math.random() * 70;
+  st.next = (55 + Math.random() * 70) * (G.def.stalkRate || 1);
   const rainy = !G.def.snow && G.def.rain >= 0.1;
   const roll = Math.random();
   if (rainy && roll < 0.35) {
@@ -912,6 +912,8 @@ function toMenu() {
     const sv = readSave(def.id);
     card.innerHTML = `<div class="cnum">${def.num}${r ? ` <span class="res ${r}">${r === 'solved' ? 'SOLVED' : 'UNSOLVED'}${results[def.id + '_hard'] ? ' ★' : ''}</span>` : ''}</div><div class="ctitle">${def.title}</div><div class="cplace">${def.place} · ${def.date}</div><div class="cblurb">${def.blurb}</div>`
       + (sv ? `<div class="cont">▶ Continue · ${(sv.clues || []).length} clues <span class="over">start over</span></div>` : '');
+    const locked = def.locked && def.locked(results);
+    if (locked) { card.classList.add('locked'); card.innerHTML += `<div class="lockmsg">🔒 ${def.lockText}</div>`; card.onclick = () => toast(def.lockText); list.appendChild(card); continue; }
     card.onclick = () => { sound.init(); $('menu').classList.add('hidden'); startCase(def, !!sv); };
     if (sv) card.querySelector('.over').onclick = (e) => { e.stopPropagation(); sound.init(); clearSave(def.id); $('menu').classList.add('hidden'); startCase(def); };
     list.appendChild(card);

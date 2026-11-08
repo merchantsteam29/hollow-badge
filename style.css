@@ -75,6 +75,9 @@ body.touch #interro .opt { font-size: 14px; }
 #caseList { display: flex; gap: 18px; flex-wrap: wrap; justify-content: center; }
 .casecard { width: min(340px, 90vw); text-align: left; background: rgba(14, 12, 10, 0.85); color: var(--ink); border: 1px solid var(--line); padding: 20px 22px; cursor: pointer; font-family: inherit; transition: border-color 0.25s, transform 0.25s; }
 .casecard:hover { border-color: var(--blood); transform: translateY(-3px); }
+.casecard.locked { opacity: 0.55; filter: grayscale(0.6); cursor: default; }
+.casecard.locked:hover { transform: none; border-color: var(--line); }
+.casecard .lockmsg { margin-top: 10px; font-family: 'Special Elite', monospace; font-size: 13px; color: var(--amber); }
 .cnum { font-family: 'Oswald', sans-serif; letter-spacing: 0.25em; font-size: 12px; color: var(--dim); }
 .res { margin-left: 8px; padding: 1px 6px; font-size: 10px; }
 .res.solved { background: #2a3a26; color: #b9d6a8; } .res.failed { background: #3a1416; color: #e6a8a8; }
