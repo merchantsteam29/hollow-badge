@@ -1,8 +1,12 @@
 // Release notes, shown in the game's "What's new" panel and mirrored in CHANGELOG.md.
 // Add the newest version at the top and bump VERSION.
-export const VERSION = '3.0.1';
+export const VERSION = '3.0.2';
 
 export const NOTES = [
+  {
+    v: '3.0.2', date: '2026-11-07', title: 'Fix: home objectives',
+    items: ['The apartment now follows what you have done: messages, mail, then the case wall. With Cases 01 to 03 finished, the payphone downstairs rings and the door takes you straight into Case 04.'],
+  },
   {
     v: '3.0.1', date: '2026-11-07', title: 'Fix: your car in Case 04',
     items: ['Your car in Ashgrove is now parked outside your building with its headlights on, and walking up to it opens the case board (it used to do nothing).'],

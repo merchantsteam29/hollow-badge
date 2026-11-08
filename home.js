@@ -26,9 +26,15 @@ export const HOME = {
   get captions() { return {}; },
   get witnesses() { return []; },
   objective(api) {
-    const r = api.results, solved = ['cmary', 'wing', 'harrow'].filter((k) => r[k] === 'solved').length;
-    if (solved === 3) return 'Read the last letter. Then look at the wall.';
-    return solved ? 'Check the answering machine and the mail. Look at the wall.' : 'Home. Get some sleep, if you can.';
+    const r = api.results, f = api.flags;
+    const solved = ['cmary', 'wing', 'harrow'].filter((k) => r[k] === 'solved').length;
+    const finished = ['cmary', 'wing', 'harrow'].every((k) => r[k]);
+    if (f.phoneRinging) return 'The payphone downstairs is ringing. Go down. (Case 04)';
+    if (!solved) return finished ? 'Look at the case wall.' : 'Nothing here yet. Leave by the door and pick a case.';
+    if (!f.heard) return 'The answering machine is blinking. Play your messages.';
+    if (!f.readLetter) return 'Something was slipped under the door. Read the mail.';
+    if (!f.sawWall) return 'Look at the case wall.';
+    return 'Back to work. Leave by the door and pick a case.';
   },
   endings: { good: { title: '', text: [] }, bad: () => ({ title: '', text: [] }) },
 
@@ -87,12 +93,12 @@ export const HOME = {
 
     // ---- interactions ----
     const pending = MSGS.filter((m) => (m.after ? solved(m.after) : count >= m.afterCount));
-    let heard = false;
+    let heard = !!api.flags.heard;
     api.anims.push(() => { blinkMat.color.setRGB(pending.length && !heard && Math.floor(performance.now() / 500) % 2 ? 1 : 0.15, 0.05, 0.05); });
     api.interact({ pos: [-2.2, 0.9, -2.2], radius: 2, label: () => (pending.length ? `Play messages (${pending.length})` : 'Answering machine (no messages)'),
       use: () => {
         if (!pending.length) { api.inspect({ title: 'Answering machine', text: ['No new messages.', 'There never are.'] }); return; }
-        heard = true;
+        heard = true; api.flags.heard = true; api.refresh(); setTimeout(checkFinale, 1000);
         const lines = [], vo = [];
         pending.forEach((m) => { lines.push('BEEP.'); vo.push(null); m.lines.forEach((t, i) => { lines.push(t); vo.push(`home.msg.${MSGS.indexOf(m)}.${i}`); }); });
         let i = 0;
@@ -104,7 +110,7 @@ export const HOME = {
         if (!letters.length) { api.inspect({ title: 'The door', text: ['Bills. A takeout menu. Nothing anyone wrote by hand.'] }); return; }
         const L = letters[letters.length - 1];
         api.inspect({ title: letters.length > 1 ? `Letters (${letters.length}). The newest:` : 'A letter, slid under the door', text: L.lines,
-          onClose: () => { api.flags.readLetter = true; LETTERS.forEach((x, k) => { if (x === L) api.voice(`home.letter.${k}.0`); }); } });
+          onClose: () => { api.flags.readLetter = true; LETTERS.forEach((x, k) => { if (x === L) api.voice(`home.letter.${k}.0`); }); api.refresh(); checkFinale(); } });
       } });
     api.interact({ pos: [2.9, 1.4, 0.4], radius: 2.4, label: 'Look at the case wall',
       use: () => {
@@ -117,10 +123,26 @@ export const HOME = {
           if (count >= 2) text.push('The red string keeps finding the same empty space in the middle of the board. Someone was in every one of these cases. Someone who was never a suspect.');
           if (count === 3) text.push('Three towns. Three killers. One friend. He is in Ashgrove now. He is in your city.');
         }
-        api.inspect({ title: 'The case wall', text });
+        api.inspect({ title: 'The case wall', text, onClose: () => { api.flags.sawWall = true; api.refresh(); checkFinale(); } });
       } });
     api.interact({ pos: [0.8, 1.5, -2.6], radius: 2, label: 'Look out of the window', use: () => api.inspect({ title: 'Ashgrove', text: ['Rain on the glass. The laundromat sign downstairs buzzing pink. A man across the street under an umbrella, not moving.', 'When you look again, the street is empty.'] }) });
-    api.interact({ pos: [-2.2, 1.3, 2.7], radius: 1.8, label: 'Leave (case files)', use: () => api.toMenu() });
+    // once all three cases are finished and you have seen what is waiting at home, the finale calls you
+    const finished = ['cmary', 'wing', 'harrow'].every((k) => r[k]);
+    function checkFinale() {
+      if (!finished || api.flags.phoneRinging) return;
+      if ((pending.length && !api.flags.heard) || (letters.length && !api.flags.readLetter) || !api.flags.sawWall) return;
+      api.flags.phoneRinging = true;
+      setTimeout(() => {
+        api.caption('Down on the street, the payphone starts to ring.', null, 4000);
+        api.sound.at([4, 0, 6], () => { api.sound.tone(880, 0.35, 0.18); api.sound.tone(990, 0.35, 0.12, 'sine', 0.42); });
+        api.refresh();
+      }, 1200);
+    }
+    let ring = 0;
+    api.anims.push((dt) => { if (!api.flags.phoneRinging) return; ring -= dt; if (ring <= 0) { ring = 3; api.sound.at([4, 0, 6], () => { api.sound.tone(880, 0.35, 0.12); api.sound.tone(990, 0.35, 0.08, 'sine', 0.42); }); } });
+    api.interact({ pos: [-2.2, 1.3, 2.7], radius: 1.8,
+      label: () => (api.flags.phoneRinging ? 'Go downstairs (Case 04: The Collector)' : 'Leave (case files)'),
+      use: () => (api.flags.phoneRinging ? api.startCaseId('ash') : api.toMenu()) });
     api.ambience({ zone: () => 'town' });
   },
 };

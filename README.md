@@ -9,7 +9,7 @@ Hollow Badge is a first-person 3D detective game that runs in the browser. You w
 - **Case 03: The Long Winter.** Harrow Falls, snowed in for nine days. Three people missing.
 - **Case 04: The Collector.** The finale, in your own city.
 
-**Play:** https://merchantsteam29.github.io/hollow-badge/ (current version: v3.0.1, see [CHANGELOG.md](CHANGELOG.md))
+**Play:** https://merchantsteam29.github.io/hollow-badge/ (current version: v3.0.2, see [CHANGELOG.md](CHANGELOG.md))
 
 **Run locally:** run `node serve.js`, then open http://localhost:8080
 

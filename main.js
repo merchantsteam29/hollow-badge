@@ -443,6 +443,7 @@ const api = {
   onRestore: (fn) => { G.restores.push(fn); },
   get results() { return results; },
   toMenu: () => toMenu(),
+  startCaseId: (id) => { const d = CASES.find((c) => c.id === id); if (d) startCase(d, !!readSave(id)); },
   get hard() { return !!settings.hard; },
   // voice lines and scare effects
   voice: (id, opts) => voices.play(id, opts),

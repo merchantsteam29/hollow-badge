@@ -2,6 +2,10 @@
 
 Play: https://merchantsteam29.github.io/hollow-badge/
 
+## v3.0.2: Fix: home objectives (2026-11-07)
+
+- The apartment now follows what you have done: messages, mail, then the case wall. With Cases 01 to 03 finished, the payphone downstairs rings and the door takes you straight into Case 04.
+
 ## v3.0.1: Fix: your car in Case 04 (2026-11-07)
 
 - Your car in Ashgrove is now parked outside your building with its headlights on, and walking up to it opens the case board (it used to do nothing).
