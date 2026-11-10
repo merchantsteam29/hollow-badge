@@ -6,7 +6,7 @@ export const NOTES = [
   {
     v: '4.2.1', date: '2026-11-09', title: 'Download for PC',
     items: [
-      'A Download for PC button on the menu: the Game Library app for Windows, with Hollow Badge and all the other games in one place. It is hidden on phones.',
+      'A Download for PC button on the menu: it opens the Game Library page, where one click installs the library as a PC app with Hollow Badge and all the other games in one place. It is hidden on phones.',
     ],
   },
   {
