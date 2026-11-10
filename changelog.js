@@ -1,8 +1,14 @@
 // Release notes, shown in the game's "What's new" panel and mirrored in CHANGELOG.md.
 // Add the newest version at the top and bump VERSION.
-export const VERSION = '4.2';
+export const VERSION = '4.2.1';
 
 export const NOTES = [
+  {
+    v: '4.2.1', date: '2026-11-09', title: 'Download for PC',
+    items: [
+      'A Download for PC button on the menu: the Game Library app for Windows, with Hollow Badge and all the other games in one place. It is hidden on phones.',
+    ],
+  },
   {
     v: '4.2', date: '2026-11-09', title: 'Install as an app',
     items: [

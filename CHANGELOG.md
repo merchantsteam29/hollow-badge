@@ -2,6 +2,10 @@
 
 Play: https://merchantsteam29.github.io/hollow-badge/
 
+## v4.2.1: Download for PC (2026-11-09)
+
+- A Download for PC button on the menu: the Game Library app for Windows, with Hollow Badge and all the other games in one place. It is hidden on phones.
+
 ## v4.2: Install as an app (2026-11-09)
 
 - Hollow Badge can be installed as an app: press Install as app on the menu (Chrome / Edge / Android), or Share > Add to Home Screen on iPhone. It gets its own icon, opens fullscreen and works offline once it has loaded.
