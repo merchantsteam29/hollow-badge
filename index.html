@@ -7,6 +7,9 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#030407">
 <title>Hollow Badge</title>
+<meta name="theme-color" content="#07080c">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <meta name="description" content="A dark first-person detective game in your browser. Four cases, one collector. Free, no download. Contains disturbing themes.">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <meta property="og:type" content="website">
@@ -62,7 +65,8 @@
 <div id="menu" class="screen hidden">
   <div class="logo">HOLLOW<span>BADGE</span></div>
   <div class="tag">Every case closes. None of them end.</div>
-  <div class="menurow"><button id="homeBtn" class="btn ghost news">Go home</button><button id="creditsBtn" class="btn ghost news">Credits</button><button id="newsBtn" class="btn ghost news">What's new · <span id="verLabel"></span></button></div>
+  <div class="menurow"><button id="homeBtn" class="btn ghost news">Go home</button><button id="creditsBtn" class="btn ghost news">Credits</button><button id="newsBtn" class="btn ghost news">What's new · <span id="verLabel"></span></button>
+    <button id="installApp" class="btn ghost news" style="display:none">Install as app</button></div>
   <div id="gpuWarn" class="hidden"><b>Chrome isn't using your graphics card</b>, so the game will be choppy, even on a gaming PC. To fix it, open Chrome's <b>Settings → System</b>, turn on <b>Use graphics acceleration when available</b>, and click <b>Relaunch</b>. If it's already on, type <b>chrome://gpu</b> in the address bar and check whether WebGL says Hardware accelerated.</div>
   <div id="caseList"></div>
   <div id="lilyCount" class="lilies"></div>
@@ -220,5 +224,6 @@
 </div>
 
 <script type="module" src="main.js"></script>
+<script src="install.js"></script>
 </body>
 </html>

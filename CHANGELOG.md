@@ -2,6 +2,10 @@
 
 Play: https://merchantsteam29.github.io/hollow-badge/
 
+## v4.2: Install as an app (2026-11-09)
+
+- Hollow Badge can be installed as an app: press Install as app on the menu (Chrome / Edge / Android), or Share > Add to Home Screen on iPhone. It gets its own icon, opens fullscreen and works offline once it has loaded.
+
 ## v4.1: Clean-up (2026-11-07)
 
 - Phones: the ending screen scrolls, so Go home and Epilogue can no longer end up off the bottom of a landscape phone.

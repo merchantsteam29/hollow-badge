@@ -1,8 +1,14 @@
 // Release notes, shown in the game's "What's new" panel and mirrored in CHANGELOG.md.
 // Add the newest version at the top and bump VERSION.
-export const VERSION = '4.1';
+export const VERSION = '4.2';
 
 export const NOTES = [
+  {
+    v: '4.2', date: '2026-11-09', title: 'Install as an app',
+    items: [
+      'Hollow Badge can be installed as an app: press Install as app on the menu (Chrome / Edge / Android), or Share > Add to Home Screen on iPhone. It gets its own icon, opens fullscreen and works offline once it has loaded.',
+    ],
+  },
   {
     v: '4.1', date: '2026-11-07', title: 'Clean-up',
     items: [
