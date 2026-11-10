@@ -1,4 +1,4 @@
-// node tools/changelog.mjs [out.md]: rebuilds CHANGELOG.md from changelog.js and, if a path is
+// node tools/changelog.mjs [out.md]: rebuilds CHANGELOG.md and updates.json (Game Library feed) from changelog.js and, if a path is
 // given, writes the GitHub release notes for the newest version there.
 import fs from 'fs';
 import path from 'path';
@@ -8,6 +8,8 @@ const NOTES = new Function('return ' + src.slice(src.indexOf('export const NOTES
 let md = '# Hollow Badge: changelog\n\nPlay: https://merchantsteam29.github.io/hollow-badge/\n';
 for (const n of NOTES) md += `\n## v${n.v}: ${n.title} (${n.date})\n\n` + n.items.map((t) => `- ${t}`).join('\n') + '\n';
 fs.writeFileSync(path.join(root, 'CHANGELOG.md'), md);
+// updates.json: the newest few, for the Game Library's Updates feed
+fs.writeFileSync(path.join(root, 'updates.json'), JSON.stringify(NOTES.slice(0, 8).map((n) => ({ version: n.v, date: n.date, title: n.title, notes: n.items })), null, 2) + '\n');
 const out = process.argv[2];
 if (out) {
   const [cur, ...old] = NOTES;

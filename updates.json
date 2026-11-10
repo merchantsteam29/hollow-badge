@@ -1,0 +1,82 @@
+[
+  {
+    "version": "4.2",
+    "date": "2026-11-09",
+    "title": "Install as an app",
+    "notes": [
+      "Hollow Badge can be installed as an app: press Install as app on the menu (Chrome / Edge / Android), or Share > Add to Home Screen on iPhone. It gets its own icon, opens fullscreen and works offline once it has loaded."
+    ]
+  },
+  {
+    "version": "4.1",
+    "date": "2026-11-07",
+    "title": "Clean-up",
+    "notes": [
+      "Phones: the ending screen scrolls, so Go home and Epilogue can no longer end up off the bottom of a landscape phone.",
+      "Phones: presenting evidence in an interview scrolls the clue list into view, and the LIGHT and NOTES buttons now tick off the how-to-play checklist.",
+      "The menu buttons no longer overlap the tagline.",
+      "The epilogue morning looks like morning: the rain on your window has stopped.",
+      "The unused voice-acting system has been removed. The game stays fully subtitled.",
+      "Links to the game now show a proper preview image, and the browser tab has a badge icon.",
+      "Behind the scenes: tidier code, a saved suite of automated playtests (desktop and phone), and a licence."
+    ]
+  },
+  {
+    "version": "4.0.1",
+    "date": "2026-11-07",
+    "title": "Fully subtitled",
+    "notes": [
+      "Hollow Badge is fully subtitled with no spoken dialogue. The voice-actor recording link has been removed from the menu."
+    ]
+  },
+  {
+    "version": "4.0",
+    "date": "2026-11-07",
+    "title": "The Final Cut",
+    "notes": [
+      "A living title screen: the menu drifts down a rainy Ashgrove street at night.",
+      "An epilogue after the finale, and a credits roll.",
+      "A white lily is hidden somewhere off the path in Cases 01, 02 and 03. Find all three for the true ending.",
+      "Reduce flashing (on the content warning and in settings): calms lightning, jumpscare flashes, police lights, flickering lamps and screen shake.",
+      "New settings: subtitle size, field of view, invert look, controllers on/off. A short how-to-play checklist the first time you play.",
+      "Gamepad support: left stick to move, right stick to look, A to examine, X flashlight, Y notebook, LT to hold your breath, Start to pause, and the D-pad works every menu."
+    ]
+  },
+  {
+    "version": "3.0.2",
+    "date": "2026-11-07",
+    "title": "Fix: home objectives",
+    "notes": [
+      "The apartment now follows what you have done: messages, mail, then the case wall. With Cases 01 to 03 finished, the payphone downstairs rings and the door takes you straight into Case 04."
+    ]
+  },
+  {
+    "version": "3.0.1",
+    "date": "2026-11-07",
+    "title": "Fix: your car in Case 04",
+    "notes": [
+      "Your car in Ashgrove is now parked outside your building with its headlights on, and walking up to it opens the case board (it used to do nothing)."
+    ]
+  },
+  {
+    "version": "3.0",
+    "date": "2026-11-07",
+    "title": "Case 04: The Collector",
+    "notes": [
+      "The finale. Ashgrove, your own city. You come home and your door is open.",
+      "Four exhibits hidden around the city, a payphone that rings for you, and a typewriter with a bent e.",
+      "Three suspects, one interrogation, and a basement you should never have found.",
+      "Opens once you have finished Cases 01 to 03."
+    ]
+  },
+  {
+    "version": "2.3",
+    "date": "2026-11-07",
+    "title": "Home",
+    "notes": [
+      "Your apartment in Ashgrove: go home from the menu or after any case.",
+      "An answering machine that fills up as you close cases. Some messages are not from anyone you know.",
+      "Letters slipped under your door. Your case wall, and the red string that keeps leading to the same empty space."
+    ]
+  }
+]
