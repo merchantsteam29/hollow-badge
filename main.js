@@ -10,6 +10,7 @@ import { CREDITS } from './credits.js';
 import { settings, saveSettings, results, saveResults } from './settings.js';
 import { createComposer } from './postfx.js';
 import { makeRain, makeSnow } from './weather.js';
+import { createGovernor } from './perf.js';
 
 const $ = (id) => document.getElementById(id);
 const sound = new Sound();
@@ -29,10 +30,13 @@ const QUALITY = {
 };
 if (!QUALITY[settings.quality]) settings.quality = 'medium';
 const Q = () => QUALITY[settings.quality];
+// resScale: perf.js trims the render resolution a little when frames run slow (and gives it back when they don't)
+let resScale = 1;
+const renderRatio = () => Q().ratio() * resScale;
 
 // ---------- renderer ----------
 const renderer = new THREE.WebGLRenderer({ antialias: settings.quality !== 'low', powerPreference: 'high-performance' });
-renderer.setPixelRatio(Q().ratio());
+renderer.setPixelRatio(renderRatio());
 renderer.setSize(innerWidth, innerHeight);
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = settings.bright;
@@ -73,7 +77,7 @@ const glintTex = (() => {
 
 function applyQuality() {
   const q = Q();
-  renderer.setPixelRatio(q.ratio()); renderer.setSize(innerWidth, innerHeight);
+  renderer.setPixelRatio(renderRatio()); renderer.setSize(innerWidth, innerHeight);
   const sh = q.shadow > 0;
   const changed = sh !== renderer.shadowMap.enabled;
   renderer.shadowMap.enabled = sh; flash.castShadow = sh;
@@ -915,7 +919,7 @@ for (const [id, key, after] of [['sInvert', 'invert'], ['sCalm', 'calm'], ['wCal
 bindSlider('sVol', 'vol', (v) => sound.setVolume(v));
 function syncQualityUI() { $('sQuality').value = settings.quality; }
 syncQualityUI();
-$('sQuality').onchange = () => { const was = settings.quality; settings.quality = $('sQuality').value; settings.qualityManual = true; saveSettings(); applyQuality(); if (G && state === 'play' && (was === 'low') !== (settings.quality === 'low')) toast('Some changes apply fully the next time you start a case'); };
+$('sQuality').onchange = () => { const was = settings.quality; settings.quality = $('sQuality').value; settings.qualityManual = true; saveSettings(); gov.reset(); applyQuality(); if (G && state === 'play' && (was === 'low') !== (settings.quality === 'low')) toast('Some changes apply fully the next time you start a case'); };
 buildComposer();
 $('sFps').checked = !!settings.showFps; $('fps').classList.toggle('hidden', !settings.showFps);
 $('sFps').onchange = () => { settings.showFps = $('sFps').checked; saveSettings(); $('fps').classList.toggle('hidden', !settings.showFps); };
@@ -1316,10 +1320,15 @@ function autoQuality(dt) {
   }
 }
 
+const gov = createGovernor({ apply: (s) => {
+  resScale = s; renderer.setPixelRatio(renderRatio());
+  if (composer) { composer.setPixelRatio(renderer.getPixelRatio()); composer.setSize(innerWidth, innerHeight); }
+} });
 let last = performance.now();
 function frame(now) {
   requestAnimationFrame(frame);
-  const dt = Math.min(0.05, (now - last) / 1000); last = now;
+  const raw = (now - last) / 1000, dt = Math.min(0.05, raw); last = now;
+  if (state === 'play' && !G?.cut && !G?.ui) gov.tick(raw);
   if (!scene || !G) { renderer.clear(); return; }
   G.t += dt;
   updatePad(dt); tutUpdate(dt);
