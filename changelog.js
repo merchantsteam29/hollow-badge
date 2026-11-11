@@ -1,8 +1,15 @@
 // Release notes, shown in the game's "What's new" panel and mirrored in CHANGELOG.md.
 // Add the newest version at the top and bump VERSION.
-export const VERSION = '4.2.1';
+export const VERSION = '4.3';
 
 export const NOTES = [
+  {
+    v: '4.3', date: '2026-11-11', title: 'Sync and achievements',
+    items: [
+      'Sync: keep your case results and lilies on all your devices. Press ☁ Sync on the menu, then enter the code on your other device. No account or email.',
+      "Achievements: close each case, solve one on hard, find all three white lilies. A 🏆 pops up when you get one, and the Game Library's Profile page shows them all.",
+    ],
+  },
   {
     v: '4.2.1', date: '2026-11-09', title: 'Download for PC',
     items: [

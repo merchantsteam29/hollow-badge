@@ -2,6 +2,11 @@
 
 Play: https://merchantsteam29.github.io/hollow-badge/
 
+## v4.3: Sync and achievements (2026-11-11)
+
+- Sync: keep your case results and lilies on all your devices. Press ☁ Sync on the menu, then enter the code on your other device. No account or email.
+- Achievements: close each case, solve one on hard, find all three white lilies. A 🏆 pops up when you get one, and the Game Library's Profile page shows them all.
+
 ## v4.2.1: Download for PC (2026-11-09)
 
 - A Download for PC button on the menu: it opens the Game Library page, where one click installs the library as a PC app with Hollow Badge and all the other games in one place. It is hidden on phones.

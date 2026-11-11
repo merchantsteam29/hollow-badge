@@ -1,5 +1,14 @@
 [
   {
+    "version": "4.3",
+    "date": "2026-11-11",
+    "title": "Sync and achievements",
+    "notes": [
+      "Sync: keep your case results and lilies on all your devices. Press ☁ Sync on the menu, then enter the code on your other device. No account or email.",
+      "Achievements: close each case, solve one on hard, find all three white lilies. A 🏆 pops up when you get one, and the Game Library's Profile page shows them all."
+    ]
+  },
+  {
     "version": "4.2.1",
     "date": "2026-11-09",
     "title": "Download for PC",
@@ -64,17 +73,6 @@
     "title": "Fix: your car in Case 04",
     "notes": [
       "Your car in Ashgrove is now parked outside your building with its headlights on, and walking up to it opens the case board (it used to do nothing)."
-    ]
-  },
-  {
-    "version": "3.0",
-    "date": "2026-11-07",
-    "title": "Case 04: The Collector",
-    "notes": [
-      "The finale. Ashgrove, your own city. You come home and your door is open.",
-      "Four exhibits hidden around the city, a payphone that rings for you, and a typewriter with a bent e.",
-      "Three suspects, one interrogation, and a basement you should never have found.",
-      "Opens once you have finished Cases 01 to 03."
     ]
   }
 ]

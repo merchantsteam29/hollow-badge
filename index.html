@@ -230,7 +230,14 @@
 (function () {
   if (!window.GameSync) return;
   var idle = function () { var t = document.getElementById("menu"); return !!t && t.getClientRects().length > 0 && getComputedStyle(t).visibility !== 'hidden'; };
-  GameSync.init({ game: "hollowbadge", keys: [{ match: 'hb_results', mode: 'max' }, { match: 'hb_secrets', mode: 'max' }, { match: 'hb_tut' }], idle: idle });
+  GameSync.init({ game: "hollowbadge", ach: [
+    { id: 'c1', name: 'Case 01 closed', desc: 'Solve the first case', test: (g) => (g('hb_results') || {}).cmary === 'solved' },
+    { id: 'c2', name: 'Case 02 closed', desc: 'Solve the second case', test: (g) => (g('hb_results') || {}).wing === 'solved' },
+    { id: 'c3', name: 'Case 03 closed', desc: 'Solve the third case', test: (g) => (g('hb_results') || {}).harrow === 'solved' },
+    { id: 'c4', name: 'Case 04 closed', desc: 'Solve the fourth case', test: (g) => (g('hb_results') || {}).ash === 'solved' },
+    { id: 'hard', name: 'By the book', desc: 'Solve a case on hard', test: (g) => Object.keys(g('hb_results') || {}).some((k) => k.endsWith('_hard')) },
+    { id: 'lilies', name: 'White lilies', desc: 'Find all three lilies', test: (g) => { const s = g('hb_secrets') || {}; return s.cmary && s.wing && s.harrow; } }
+  ], keys: [{ match: 'hb_results', mode: 'max' }, { match: 'hb_secrets', mode: 'max' }, { match: 'hb_tut' }], idle: idle });
   document.addEventListener('click', function (e) { if (e.target.closest && e.target.closest('#syncBtn')) { e.stopPropagation(); GameSync.open(); } }, true);
 })();
 </script>
